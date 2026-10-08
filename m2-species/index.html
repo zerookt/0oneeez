@@ -4,46 +4,70 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>M2 物種雛形：晶靈樹醫 Pippa</title>
-    <!-- 優先載入同目錄下的 p5.min.js，離線與校園網路皆能秒開 -->
+    <!-- 優先載入本地 p5.min.js（1.9.4 穩定版），斷網與校園網路皆能秒開 -->
     <script src="p5.min.js"></script>
     <script>
       if (typeof p5 === 'undefined') {
-        document.write('<script src="https://cdn.jsdelivr.net/npm/p5@2/lib/p5.min.js"><\/script>');
+        document.write('<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"><\/script>');
       }
     </script>
     <style>
       html, body {
         margin: 0;
         padding: 0;
-        min-height: 100%;
+        min-height: 100vh;
         background-color: #1a241e;
+        overflow-y: auto;
       }
       main {
         display: flex;
         flex-direction: column;
-        justify-content: center;
+        justify-content: flex-start;
         align-items: center;
-        min-height: 100vh;
-        padding: 15px 0;
+        padding: 20px 10px;
         box-sizing: border-box;
       }
       canvas {
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
         border-radius: 8px;
+        max-width: 95vw;
+        height: auto;
       }
       #hint {
         color: #a8cfb4;
-        font-family: sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         font-size: 14px;
-        margin-top: 12px;
+        margin-top: 14px;
         letter-spacing: 1px;
+        text-align: center;
+      }
+      #error-box {
+        display: none;
+        color: #ff8585;
+        background: rgba(30, 0, 0, 0.85);
+        border: 1px solid #ff4444;
+        padding: 10px 16px;
+        border-radius: 6px;
+        margin-top: 10px;
+        font-family: monospace;
+        font-size: 13px;
       }
     </style>
   </head>
   <body>
     <main>
+      <div id="error-box"></div>
       <div id="hint">🌿 點擊畫布：皮皮（Pippa）敲擊樹皮吃蜜露｜移動滑鼠：皮皮的視線會跟隨你</div>
     </main>
+    <script>
+      window.addEventListener('error', function(e) {
+        var box = document.getElementById('error-box');
+        if (box) {
+          box.style.display = 'block';
+          box.innerText = '⚠️ 載入錯誤提示：' + e.message;
+        }
+      });
+    </script>
     <script src="sketch.js"></script>
   </body>
 </html>

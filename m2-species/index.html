@@ -9,30 +9,34 @@
       html, body {
         margin: 0;
         padding: 0;
-        height: 100%;
+        min-height: 100%;
         background-color: #1a241e;
-        overflow: hidden;
       }
       main {
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        height: 100%;
+        min-height: 100vh;
+        padding: 15px 0;
+        box-sizing: border-box;
+      }
+      canvas {
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+        border-radius: 8px;
       }
       #hint {
         color: #a8cfb4;
         font-family: sans-serif;
         font-size: 14px;
-        margin-top: 10px;
+        margin-top: 12px;
         letter-spacing: 1px;
       }
     </style>
   </head>
   <body>
     <main>
-      <div id="canvas-container"></div>
-      <div id="hint">🌿 點擊畫布：讓皮皮（Pippa）敲擊樹皮吃蜜露｜滑鼠游標：皮皮的視線會跟隨你</div>
+      <div id="hint">🌿 點擊畫布：皮皮（Pippa）敲擊樹皮吃蜜露｜移動滑鼠：皮皮的視線會跟隨你</div>
     </main>
     <script src="sketch.js"></script>
   </body>

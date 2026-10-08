@@ -10,8 +10,7 @@ let sparkles = [];  // 啄木時的蜜露光點粒子
 let pippa;         // 晶靈樹醫主角
 
 function setup() {
-  let canvas = createCanvas(800, 600);
-  canvas.parent('canvas-container');
+  createCanvas(800, 600);
 
   // 1. 建立環境物件
   tree = new TreeTrunk();
@@ -82,28 +81,28 @@ class TreeDoctor {
   }
 
   update() {
-    // 呼吸律動（利用正弦波 sin 讓肚子微微縮放）
-    this.breath = sin(frameCount * 0.05) * 2;
+    // 呼吸律動（讓半透明果凍肚子明顯縮放）
+    this.breath = sin(frameCount * 0.06) * 4.5;
 
-    // 自動啄木觸發機制
+    // 自動啄木計時器（每 2 秒左右敲擊一次，更生動）
     this.nextAutoPeck--;
     if (this.nextAutoPeck <= 0 && !this.isPecking) {
       this.startPeck();
-      this.nextAutoPeck = floor(random(180, 300));
+      this.nextAutoPeck = floor(random(100, 180));
     }
 
     // 啄木動作進行中
     if (this.isPecking) {
       this.peckTimer++;
-      // 快速小幅度前後敲擊
-      this.peckOffset = sin(this.peckTimer * 0.8) * 12;
+      // 快速前後敲擊樹皮
+      this.peckOffset = sin(this.peckTimer * 0.9) * 14;
 
-      // 啄擊最高點時噴出微光粒子
-      if (this.peckTimer % 8 === 0) {
+      // 啄擊接觸時噴出金色蜜露微光
+      if (this.peckTimer % 6 === 0) {
         sparkles.push(new Sparkle(this.x - 38, this.y - 12 + this.peckOffset));
       }
 
-      if (this.peckTimer > 24) {
+      if (this.peckTimer > 28) {
         this.isPecking = false;
         this.peckOffset = 0;
       }
@@ -111,8 +110,8 @@ class TreeDoctor {
       this.peckOffset = 0;
     }
 
-    // 核心能量隨時間微幅脈動
-    this.coreEnergy = 160 + sin(frameCount * 0.08) * 50;
+    // 核心能量隨時間脈動發光
+    this.coreEnergy = 170 + sin(frameCount * 0.09) * 60;
   }
 
   startPeck() {

@@ -4,7 +4,13 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>M2 物種雛形：晶靈樹醫 Pippa</title>
-    <script src="https://cdn.jsdelivr.net/npm/p5@2/lib/p5.min.js"></script>
+    <!-- 優先載入同目錄下的 p5.min.js，離線與校園網路皆能秒開 -->
+    <script src="p5.min.js"></script>
+    <script>
+      if (typeof p5 === 'undefined') {
+        document.write('<script src="https://cdn.jsdelivr.net/npm/p5@2/lib/p5.min.js"><\/script>');
+      }
+    </script>
     <style>
       html, body {
         margin: 0;

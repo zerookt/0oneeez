@@ -1,5 +1,5 @@
 const R=120,H0=200,OUT=240;
-let barkTex,groundTex,yaw=.7,pitch=.2,camD=340,tx=0,ty=-120,tz=0,ex=0,ey=0,ez=0,shake=0,moved=0,pressF=0,hasMouse=false;
+let barkTex,groundTex,yaw=.7,pitch=.2,camD=340,tx=0,ty=-120,tz=0,ex=0,ey=0,ez=0,shake=0,moved=0,pressF=0,hoverFly=false,pressing=false;
 const finAngs=[],gaps=[],mounds=[],shrooms=[],farTrees=[],spores=[],leaves=[],fungi=[],drops=[],flow=[],ripples=[];
 const P={x:260,y:-130,z:110,vx:0,vy:0,vz:0,yaw:3.14159,pit:0,roll:0,hyd:1,glow:.6,curl:0,qt:0};
 const cx=z=>420+60*Math.sin(z*.004), hw=z=>88+14*Math.sin(z*.011);
@@ -50,6 +50,26 @@ function makeGround(){
   for(let py=0;py<512;py+=2){const wx=cx(py/512*4000-2000);g.fill(24,44,40,170);g.circle((wx+2000)/4000*512,py,34)}
   return g}
 
+// 遠方的老樹：沿用主體樹的做法——貼圖樹幹、根裙、帶綠頂的板根鰭，只是縮小、降低細節
+function drawFarTree(f){
+  const s=f.r/R,h0=H0*s,o=f.r+(OUT-R)*s,fin=4,D=6,len=(o-f.r+12*s)/D;
+  const fog=1-f.f;                       // 越遠越暗，保留原本的距離感
+  push();translate(f.x,0,f.z);
+  push();translate(0,-900,0);texture(barkTex);cylinder(f.r,1800,20,1,false,false);pop();
+  push();translate(0,-30*s,0);texture(barkTex);cylinder(f.r+16*s,60*s,24,1,false,false);pop();
+  const a0=f.x*.013+f.z*.007;            // 每棵樹的板根角度不同
+  for(let k=0;k<fin;k++){push();rotateY(a0+k*TWO_PI/fin);
+    for(let i=0;i<D;i++){const t=(i+.5)/D,hh=h0*Math.pow(1-t,2);
+      push();translate(f.r-12*s+t*(o-f.r+12*s),-hh/2,0);
+      const c=lerpColor(color(84,60,44),color(70,100,58),t*.7);
+      fill(red(c)*fog,green(c)*fog,blue(c)*fog);box(len+.5,hh,34*s);
+      translate(0,-hh/2,0);fill(66*fog,122*fog,60*fog);box(len+.8,3,38*s);pop()}
+    pop()}
+  const dx=cos(PI/4),dz=sin(PI/4);
+  push();translate(dx*(f.r+52*s),-2,dz*(f.r+52*s));scale(1,.2,1);fill(58*fog,132*fog,70*fog);sphere(58*s,14,10);pop();
+  pop();
+}
+
 function mouseTarget(){
   const f=createVector(tx-ex,ty-ey,tz-ez).normalize(),up=createVector(0,1,0);
   const r=p5.Vector.cross(f,up).normalize(),d=p5.Vector.cross(r,f),th=tan(PI/6);
@@ -60,16 +80,32 @@ function mouseTarget(){
   return[ex+ray.x*dep,ey+ray.y*dep,ez+ray.z*dep,boost]}
 
 function update(){
-  let g,boost=false;
-  if(!hasMouse){const t=frameCount*.004;g=[cos(t)*270,-150+sin(t*2)*40,sin(t)*270]}
-  else{const m=mouseTarget();g=[m[0],m[1],m[2]];boost=m[3]}
+  // 鍵盤飛行：方向以鏡頭的水平朝向為準
+  let ix=0,iz=0,iy=0;
+  if(keyIsDown(87)||keyIsDown(UP_ARROW))iz+=1;     // W / ↑ 前進
+  if(keyIsDown(83)||keyIsDown(DOWN_ARROW))iz-=1;   // S / ↓ 後退
+  if(keyIsDown(65)||keyIsDown(LEFT_ARROW))ix-=1;   // A / ← 左移
+  if(keyIsDown(68)||keyIsDown(RIGHT_ARROW))ix+=1;  // D / → 右移
+  if(keyIsDown(32))iy-=1;                          // Space 上升
+  if(keyIsDown(SHIFT))iy+=1;                       // Shift 下降
+  const kb=ix||iz||iy;
   if(P.qt>0){P.qt--;P.curl=min(1,P.curl+.2);P.vx*=.88;P.vy*=.88;P.vz*=.88}
   else{
     P.curl=max(0,P.curl-.05);
-    let ax=g[0]-P.x,ay=g[1]-P.y,az=g[2]-P.z;const d=Math.hypot(ax,ay,az)||1,k=min(.5,d*.006)/d;
-    P.vx+=ax*k;P.vy+=ay*k;P.vz+=az*k;
-    P.vx*=.93;P.vy*=.93;P.vz*=.93;
-    const sp=Math.hypot(P.vx,P.vy,P.vz),mx=boost?11:7.5;if(sp>mx){P.vx*=mx/sp;P.vy*=mx/sp;P.vz*=mx/sp}
+    if(kb){
+      const fl=Math.hypot(tx-ex,tz-ez)||1,fx=(tx-ex)/fl,fz=(tz-ez)/fl;
+      P.vx+=(fx*iz-fz*ix)*.9;P.vz+=(fz*iz+fx*ix)*.9;P.vy+=iy*.8;
+      P.vx*=.96;P.vy*=.96;P.vz*=.96;
+      const sp=Math.hypot(P.vx,P.vy,P.vz),mx=9;if(sp>mx){P.vx*=mx/sp;P.vy*=mx/sp;P.vz*=mx/sp}
+    }else{
+      let g,boost=false;
+      if(hoverFly||pressing){const m=mouseTarget();g=[m[0],m[1],m[2]];boost=m[3]}
+      else{const t=frameCount*.004;g=[cos(t)*270,-150+sin(t*2)*40,sin(t)*270]}
+      let ax=g[0]-P.x,ay=g[1]-P.y,az=g[2]-P.z;const d=Math.hypot(ax,ay,az)||1,k=min(.5,d*.006)/d;
+      P.vx+=ax*k;P.vy+=ay*k;P.vz+=az*k;
+      P.vx*=.93;P.vy*=.93;P.vz*=.93;
+      const sp=Math.hypot(P.vx,P.vy,P.vz),mx=boost?11:7.5;if(sp>mx){P.vx*=mx/sp;P.vy*=mx/sp;P.vz*=mx/sp}
+    }
   }
   P.x+=P.vx;P.y+=P.vy+sin(frameCount*.07)*.15;P.z+=P.vz;
   // collisions: trunk, far trunks, ground & roots, bounds
@@ -119,7 +155,7 @@ function draw(){
   camera(ex+random(-shake,shake),ey+random(-shake,shake),ez,tx,ty,tz,0,1,0);
   lights3();
 
-  for(const f of farTrees){push();translate(f.x,-900,f.z);fill(lerp(66,22,f.f),lerp(50,44,f.f),lerp(40,40,f.f));cylinder(f.r,1800,14,1,false,false);pop()}
+  for(const f of farTrees)drawFarTree(f);
   push();rotateX(HALF_PI);texture(groundTex);plane(4000,4000);pop();
   for(const m of mounds){push();translate(m.x,0,m.z);scale(1,.35,1);fill(m.c[0],m.c[1],m.c[2]);sphere(m.r,10,8);pop()}
   push();translate(0,-1100,0);texture(barkTex);cylinder(R,2200,40,1,false,false);pop();
@@ -210,20 +246,29 @@ function drawPippa(){
     if(!blink){translate(1,-1.3,2.3);fill(255);sphere(1.2,6,5);translate(-2,2.4,0);fill(160,215,255);sphere(.6,5,4)}pop();
     push();translate(s*9.4,3.2,8.8);scale(1,.7,.35);fill(255,150,175,200);sphere(3,8,6);pop()}
   push();translate(0,4.2,12.8);scale(1.6,.5,.4);fill(220,120,140);sphere(1,6,5);pop();
-  // translucent iridescent bubble lobes (back to front, no depth writes so they blend)
+  // glass lobes: nearly clear body + additive rim shell + sharp specular glints (back to front)
   drawingContext.depthMask(false);
   LOBES.forEach((l,i)=>{
     const t=TINT[i%4],k=i==10?.8:1,r=l[3]*(1+.05*sin(T*.05+i*1.3)),m=1-c*.5;
     push();translate(l[0]*m+sin(T*.03+i)*.8,l[1]*m+cos(T*.025+i*2)*.8,l[2]*m);
-    fill(lerp(t[0],235,pale),lerp(t[1],235,pale),lerp(t[2],235,pale),92*k);sphere(r,18,14);
-    translate(-r*.38,-r*.5,r*.5);fill(255,255,255,150);scale(1,.6,.4);sphere(r*.28,8,6);pop()});
+    // faint cool shell just outside the body -> reads as a glassy rim
+    blendMode(ADD);fill(170,232,238,24*k);sphere(r*1.07,16,12);blendMode(BLEND);
+    // body: low alpha so the golden core and background show through
+    fill(lerp(t[0],235,pale),lerp(t[1],235,pale),lerp(t[2],235,pale),42*k);sphere(r,20,14);
+    // the glass cue: one sharp glint + a tiny secondary sparkle
+    push();translate(-r*.42,-r*.52,r*.54);scale(1,.5,.3);fill(255,255,255,240);sphere(r*.19,8,6);pop();
+    push();translate(r*.46,r*.36,-r*.08);fill(255,255,255,150);sphere(r*.07,6,5);pop();
+    pop()});
   drawingContext.depthMask(true);
   pop();
 }
 
-function mousePressed(){moved=0;pressF=frameCount;hasMouse=true}
-function mouseMoved(){hasMouse=true}
+function keyPressed(){
+  if(key==='m'||key==='M'){hoverFly=!hoverFly;return false}
+  if(keyCode===32||(keyCode>=37&&keyCode<=40))return false;   // 空白與方向鍵不要捲動頁面
+}
+function mousePressed(){moved=0;pressF=frameCount;pressing=true}
 function mouseDragged(){yaw-=(mouseX-pmouseX)*.006;pitch=constrain(pitch+(mouseY-pmouseY)*.006,-.25,1.35);moved+=abs(mouseX-pmouseX)+abs(mouseY-pmouseY);return false}
-function mouseReleased(){if(moved<6&&frameCount-pressF<=12)quake()}
+function mouseReleased(){pressing=false;if(moved<6&&frameCount-pressF<=12)quake()}
 function mouseWheel(e){camD=constrain(camD*exp(e.delta*.001),150,1200);return false}
 function windowResized(){resizeCanvas(innerWidth,innerHeight)}

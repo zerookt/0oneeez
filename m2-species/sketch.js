@@ -14,7 +14,7 @@ document.querySelectorAll('[data-cam]').forEach(b=>{
   const k=b.dataset.cam,on=()=>{cam[k]=1;b.classList.add('on')},off=()=>{cam[k]=0;b.classList.remove('on')};
   b.addEventListener('pointerdown',e=>{e.preventDefault();on()});
   b.addEventListener('pointerup',off);b.addEventListener('pointerleave',off);b.addEventListener('pointercancel',off)});
-let barkTex,groundTex,yaw=.7,pitch=.2,camD=340,tx=0,ty=-120,tz=0,ex=0,ey=0,ez=0,shake=0,moved=0,pressF=0,hoverFly=false,pressing=false;
+let barkTex,groundTex,whiteTex,yaw=.7,pitch=.2,camD=340,tx=0,ty=-120,tz=0,ex=0,ey=0,ez=0,shake=0,moved=0,pressF=0,hoverFly=false,pressing=false;
 // 不會動的裝飾（板根、苔丘、磨菇）先在 setup 合併成一塊幾何，之後每幀只要 1 次繪製呼叫
 let finGeom,farGeom,moundGeom,shroomGeom,padDrag=null;
 const finAngs=[],gaps=[],mounds=[],shrooms=[],farTrees=[],spores=[],leaves=[],fungi=[],drops=[],flow=[],ripples=[],sparks=[];
@@ -49,6 +49,8 @@ function setup(){
 
   // ★ 效能關鍵：把「不會動」的裝飾合併成一塊幾何。畫面上幾百次繪製呼叫 → 4 次
   noStroke();
+  // 白色 1×1 貼圖：畫「合併幾何」前先綁它，把殘留的樹皮／地面貼圖蓋掉
+  whiteTex=createImage(1,1);whiteTex.set(0,0,[255,255,255,255]);whiteTex.updatePixels();
   finGeom=buildGeometry(buildMainFins);
   farGeom=buildGeometry(buildFarFins);
   moundGeom=buildGeometry(buildMounds);
@@ -140,10 +142,11 @@ function mouseTarget(){
   return[ex+ray.x*dep,ey+ray.y*dep,ez+ray.z*dep,boost]}
 
 // 判斷滑鼠指標是不是指在牠身上：把滑鼠射線和牠的球心做最近距離，小於半徑就算點到
-function pippaHit(){
+function pippaHit(sx,sy){
+  const mx=sx==null?mouseX:sx,my=sy==null?mouseY:sy;
   const f=createVector(tx-ex,ty-ey,tz-ez).normalize(),up=createVector(0,1,0);
   const r=p5.Vector.cross(f,up).normalize(),d=p5.Vector.cross(r,f),th=tan(PI/6);
-  const nx=(mouseX/width-.5)*2,ny=(mouseY/height-.5)*2;
+  const nx=(mx/width-.5)*2,ny=(my/height-.5)*2;
   const ray=f.copy().add(r.mult(nx*th*width/height)).add(d.mult(ny*th)).normalize();
   const ox=P.x-ex,oy=P.y-ey,oz=P.z-ez,t=ox*ray.x+oy*ray.y+oz*ray.z;
   if(t<=0)return false;                       // 在鏡頭後面
@@ -227,39 +230,42 @@ function update(){
 }
 
 function quake(){
-  P.qt=150;shake=16;
-  for(let i=0;i<40;i++)leaves.push({x:tx+random(-450,450),y:random(-950,-300),z:tz+random(-450,450),vy:random(.8,1.8),ph:random(6),c:random()<.6?[90,150,70]:[210,170,70]})}
+  P.qt=40;shake=11;   // 40 幀約 0.7 秒（原本 150 幀＝2.5 秒太久了）
+  for(let i=0;i<24;i++)leaves.push({x:tx+random(-450,450),y:random(-950,-300),z:tz+random(-450,450),vy:random(.8,1.8),ph:random(6),c:random()<.6?[90,150,70]:[210,170,70]})}
 
 function lights3(){
   ambientLight(95,120,110);
   directionalLight(255,235,190,-.3,.8,-.4);
   directionalLight(60,90,110,.5,.3,.6);
-  lightFalloff(1,.004,.00003);pointLight(255,190,70+80*P.glow,P.x,P.y-6,P.z);
+  lightFalloff(1,.004,.00003);pointLight(255,208,142+70*P.glow,P.x,P.y-4,P.z);
 }
 
 function draw(){
   noStroke();
   const t0=millis();
   // 觸控面板：按住就持續轉視角（左右＝yaw、上下＝pitch、＋－＝遠近）
-  yaw+=(cam.r-cam.l)*.035;
+  yaw+=(cam.l-cam.r)*.035;                        // ◀ ▶ 按鈕：轉的方向和「拖曳」一致
   pitch=constrain(pitch+(cam.d-cam.u)*.02,-.25,1.35);
   camD=constrain(camD*(1+(cam.zo-cam.zi)*.012),150,1200);
   ex=tx+camD*cos(pitch)*sin(yaw);ey=min(ty-camD*sin(pitch),-12);ez=tz+camD*cos(pitch)*cos(yaw);
   update();
   tx=lerp(tx,P.x,.07);ty=lerp(ty,P.y,.07);tz=lerp(tz,P.z,.07);
-  if(P.qt>0)shake=max(shake,P.qt/150*10);shake*=.93;
+  if(P.qt>0)shake=max(shake,P.qt/40*9);shake*=.93;
   background(22,44,40);
   if(frameCount%15===0&&fpsEl)fpsEl.textContent=Math.round(frameRate())+' fps ・ 運算 '+workMs.toFixed(1)+' ms';
   perspective(PI/3,width/height,5,12000);
   camera(ex+random(-shake,shake),ey+random(-shake,shake),ez,tx,ty,tz,0,1,0);
   lights3();
 
-  if(!BARE){for(const f of farTrees)drawFarTrunk(f);model(farGeom)}   // 樹幹 22 次 ＋ 所有板根 1 次
+  // 合併幾何（板根／苔丘）：幾百個方塊合成 1 次繪製呼叫
+  texture(whiteTex);
+  if(!BARE){model(farGeom);model(moundGeom)}
+  model(finGeom);
+  // 有貼圖的東西畫在後面，免得殘留的貼圖影響上面的合併幾何
   push();rotateX(HALF_PI);texture(groundTex);plane(4000,4000);pop();
-  if(!BARE)model(moundGeom);
+  for(const f of farTrees)drawFarTrunk(f);
   push();translate(0,-1100,0);texture(barkTex);cylinder(R,2200,24,1,false,false);pop();
   push();translate(0,-30,0);texture(barkTex);cylinder(R+16,60,24,1,false,false);pop();
-  model(finGeom);
   const dx=cos(PI/4),dz=sin(PI/4);
   push();translate(dx*(R+52),-2,dz*(R+52));scale(1,.2,1);fill(58,132,70);sphere(58,14,10);pop();
   const bump=[[0,0,1],[-9,5,.7],[8,6,.8],[-5,-8,.6],[7,-7,.7],[1,11,.5]];
@@ -269,14 +275,14 @@ function draw(){
         push();translate(b[0]*f.s,b[1]*f.s,3.4*b[2]*f.s);fill(235,150,90);sphere(1.6*f.s,6,5);pop()}
       if(f.hl>.02){push();translate(b[0]*1.2,b[1]*1.2,2);fill(120,238,160);sphere(3.6*b[2]*f.hl*(1+.12*sin(frameCount*.06+b[0])),8,6);pop()}}
     pop()}
-  if(!BARE)model(shroomGeom);
+  if(!BARE){texture(whiteTex);model(shroomGeom)}
 
   noLights();
   fill(38,108,118,175);beginShape(TRIANGLE_STRIP);
   for(let z=-1900;z<=1900;z+=60){const c=cx(z),h=hw(z);vertex(c-h,-1.5,z);vertex(c+h,-1.5,z)}endShape();
   fill(120,210,210,55);beginShape(TRIANGLE_STRIP);
   for(let z=-1900;z<=1900;z+=60){const c=cx(z),h=hw(z)*.45;vertex(c-h,-2,z);vertex(c+h,-2,z)}endShape();
-  for(let k=0;k<34;k++){const z=((k*131+frameCount*1.3)%3800)-1900,x=cx(z)+((k*37)%100-50)*1.2;
+  for(let k=0;k<18;k++){const z=((k*131+frameCount*1.3)%3800)-1900,x=cx(z)+((k*37)%100-50)*1.2;
     push();translate(x,-2.6,z);rotateX(HALF_PI);fill(225,255,255,75);ellipse(0,0,6,26);pop()}
   for(const d of drops){push();translate(...dpos(d));
     const s=d.s*(1+.06*sin(frameCount*.05+d.ph));fill(255,200,70,215);sphere(4.5*s+.01,10,8);
@@ -320,9 +326,9 @@ function draw(){
   workMs=workMs*.85+(millis()-t0)*.15;   // 平滑後的「每幀實際運算時間」
 }
 
-// Pippa: a drifting cluster of translucent jade-pearl bubbles with a golden core
+// Pippa: a drifting cluster of off-white pearl bubbles with a warm light glowing from its centre
 const LOBES=[[0,0,-11,12],[-10,-1,-9,9],[10,0,-9,9],[-5,15,-5,8],[8,14,-5,7],[-17,6,-4,8],[16,7,-3,8.5],[-15,-7,-3,9],[14,-8,-4,9.5],[0,-16,-4,9],[0,0,0,13.5]];
-const TINT=[[200,248,228],[214,214,248],[250,222,232],[255,240,200]];
+const TINT=[[248,245,234],[243,242,243],[252,246,236],[245,242,244]];   // 米白色（四種只差一點點的白）
 const STR=[[-11,-5,-9],[11,-5,-9],[-9,8,-9],[9,8,-9]];
 const strand=(i,u,T,spd)=>{const t=STR[i];return[t[0]*(1+u*1.5)+sin(T*.1+u*5+i*1.7)*u*7*(.5+spd),t[1]*(1+u*1.1)+cos(T*.08+u*4+i)*u*6+u*u*10,t[2]-u*(1-P.curl*.8)*50]};
 function drawPippa(){
@@ -332,37 +338,39 @@ function drawPippa(){
   scale(bounce*(.9+.1*P.hyd)*(1-.2*c)*(1+.05*sin(T*.9)*c),bounce*(.9+.1*P.hyd)*(1-.2*c)*(1+.04*sin(T*.05)),bounce*(1-.2*c)*(1+.06*spd));
   // trailing tendrils ending in warm glowing orbs
   for(let i=0;i<4;i++){
-    for(let k=1;k<8;k++){push();translate(...strand(i,k/8,T,spd));fill(235,245,255,170);sphere(.7,5,4);pop()}
+    for(let k=1;k<5;k++){push();translate(...strand(i,k/5,T,spd));fill(246,244,236,242);sphere(.75,5,4);pop()}
     const e=strand(i,1,T,spd);
     push();translate(...e);emissiveMaterial(255*g,215*g,120*g);fill(255,235,170);sphere(2.8,10,8);pop();
     push();translate(...e);fill(255,230,150,50);sphere(6+1.5*sin(T*.07+i),10,8);pop()}
-  // golden energy core + tiny glowing cells
-  const pul=.6+.4*sin(T*.07);
-  push();translate(0,1,1);emissiveMaterial(255*g,190*g,50);fill(255,205,70);sphere(4.4+1.1*pul*g,12,10);pop();
-  push();translate(0,1,1);fill(255,210,90,55);sphere(9+3*g*pul,12,10);pop();
-  LOBES.forEach((l,i)=>{for(let q=0;q<2;q++){const a=i*2.3+q*3.1,b=i*1.1+q*2;
-    push();translate(l[0]+cos(a)*l[3]*.6,l[1]+sin(b)*l[3]*.6,l[2]+sin(a)*l[3]*.5);
-    emissiveMaterial(255*g,225*g,140*g);fill(255,235,160);sphere(.9+.3*sin(T*.08+i+q),6,5);pop()}});
-  // face
-  const blink=T%220<6;
-  for(const s of[-1,1]){push();translate(s*5.6,-1,11.6);
-    if(happy)scale(1.25,.32,1);else if(blink)scale(1.3,.22,1);   // 開心瞇眼 / 眨眼
-    fill(15,20,28);sphere(1.5,8,6);pop();
-    push();translate(s*9.4,3.2,8.8);scale(happy?1.4:1,.7,.35);fill(255,150,175,happy?235:200);sphere(3,8,6);pop()}
-  push();translate(0,4.2,12.8);scale(1.6,happy?1.2:.5,.4);fill(220,120,140);sphere(1,6,5);pop();
-  // glass lobes: nearly clear body + additive rim shell + sharp specular glints (back to front)
+  // 外層：米白色的雲霧狀身體（半透明、沒有玻璃高光）
   drawingContext.depthMask(false);
   LOBES.forEach((l,i)=>{
     const t=TINT[i%4],k=i==10?.8:1,r=l[3]*(1+.05*sin(T*.05+i*1.3)),m=1-c*.5;
     push();translate(l[0]*m+sin(T*.03+i)*.8,l[1]*m+cos(T*.025+i*2)*.8,l[2]*m);
-    // faint cool shell just outside the body -> reads as a glassy rim
-    blendMode(ADD);fill(170,232,238,24*k);sphere(r*1.07,14,10);blendMode(BLEND);
-    // body: 半透明但夠清楚，看得到金色核心
-    fill(lerp(t[0],235,pale),lerp(t[1],235,pale),lerp(t[2],235,pale),148*k);sphere(r,18,13);
-    // the glass cue: one sharp glint + a tiny secondary sparkle
-    push();translate(-r*.42,-r*.52,r*.54);scale(1,.5,.3);fill(255,255,255,240);sphere(r*.19,8,6);pop();
-    push();translate(r*.46,r*.36,-r*.08);fill(255,255,255,150);sphere(r*.07,6,5);pop();
+    // （原本這裡有一圈半透明的冷色光邊，是「雲狀透明感」的來源，已移除 → 讓身體成為實心米白）
+    // body: 米白色、60% 不透明（更霧）
+    fill(lerp(t[0],252,pale),lerp(t[1],252,pale),lerp(t[2],252,pale),153);sphere(r,18,13);
+    // （玻璃感的高光反光已移除 → 改成單純的雲霧狀）
     pop()});
+  // ★ 臉一定要畫在身體之後：身體是不透明的，先畫的臉會被整顆蓋掉（這就是剛剛「看不出是生物」的原因）
+  const blink=T%220<6;
+  for(const s of[-1,1]){push();translate(s*4.4,-1,11.9);        // 眼距
+    if(happy)scale(1.25,.32,1);else if(blink)scale(1.3,.22,1);   // 開心瞇眼 / 眨眼
+    fill(40,44,54);sphere(1.25,8,6);pop();
+    push();translate(s*8.4,3.2,8.8);scale(happy?1.4:1,.7,.35);fill(255,150,175,happy?235:200);sphere(3,8,6);pop()}
+  push();translate(0,4.2,12.8);scale(1.6,happy?1.2:.5,.4);fill(220,120,140);sphere(1,6,5);pop();
+  // ★ 身體最正中心的晶體：固定在 (0,0,0)，很小、透明度 85%，散發橘色暖光
+  const gr=1+.06*sin(T*.07);
+  push();
+  fill(255,232,186,38);                                       // 晶體本體：透明度 85%（38/255 ≈ 15% 不透明）
+  emissiveMaterial(255*g,206*g,110*g);sphere(0.15*gr,6,4);    // 晶體本體（更小、偏橘、會發光）
+  blendMode(ADD);                                             // 橘色暖光：從 2 一路散到 8.6，越外圈越橘越淡
+  fill(255,222,134,175*g);sphere(2.0*gr,8,6);
+  fill(255,204,96,95*g);  sphere(3.6*gr,10,8);
+  fill(255,186,66,48*g);  sphere(5.8*gr,10,8);
+  fill(255,170,48,20*g);  sphere(8.6*gr,12,10);
+  blendMode(BLEND);
+  pop();
   drawingContext.depthMask(true);
   pop();
 }
@@ -374,14 +382,22 @@ function keyPressed(){
   if(keyCode===32||(keyCode>=37&&keyCode<=40))return false;   // 空白與方向鍵不要捲動頁面
 }
 // 拖曳＝轉視角（滑鼠與觸控共用同一套邏輯）
+let tPrev=null;                                  // 觸控上一次的座標
 function lookStart(ev){if(isUI(ev))return;moved=0;pressF=frameCount;pressing=true;return false}
 function lookDrag(){yaw-=(mouseX-pmouseX)*.006;pitch=constrain(pitch+(mouseY-pmouseY)*.006,-.25,1.35);moved+=abs(mouseX-pmouseX)+abs(mouseY-pmouseY)}
-function lookTap(){pressing=false;if(moved<6&&frameCount-pressF<=12){if(pippaHit())reactToPet();else quake()}}
+function lookTap(sx,sy){pressing=false;if(moved<6&&frameCount-pressF<=12){if(pippaHit(sx,sy))reactToPet();else quake()}}
 function mousePressed(ev){lookStart(ev)}
 function mouseDragged(ev){if(isUI(ev))return;lookDrag();return false}
 function mouseReleased(ev){if(isUI(ev))return;lookTap()}
-function touchStarted(ev){return lookStart(ev)}
-function touchMoved(ev){if(isUI(ev))return false;lookDrag();return false}
-function touchEnded(ev){if(isUI(ev))return false;lookTap();return false}
+// 觸控：不靠 p5 的 mouseX（觸控時不一定會更新），直接讀手指的座標
+function touchStarted(ev){if(isUI(ev))return;const t=ev.touches&&ev.touches[0];if(!t)return;
+  tPrev={x:t.clientX,y:t.clientY};return lookStart()}
+function touchMoved(ev){if(isUI(ev))return false;const t=ev.touches&&ev.touches[0];if(!t||!tPrev)return false;
+  yaw-=(t.clientX-tPrev.x)*.006;
+  pitch=constrain(pitch+(t.clientY-tPrev.y)*.006,-.25,1.35);
+  moved+=abs(t.clientX-tPrev.x)+abs(t.clientY-tPrev.y);
+  tPrev={x:t.clientX,y:t.clientY};return false}
+function touchEnded(ev){if(isUI(ev))return false;const t=ev.changedTouches&&ev.changedTouches[0];
+  tPrev=null;lookTap(t?t.clientX:null,t?t.clientY:null);return false}
 function mouseWheel(e){camD=constrain(camD*exp(e.delta*.001),150,1200);return false}
 function windowResized(){resizeCanvas(innerWidth,innerHeight)}

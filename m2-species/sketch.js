@@ -91,23 +91,43 @@ function makeGround(){
   for(let py=0;py<512;py+=2){const wx=cx(py/512*4000-2000);g.fill(24,44,40,170);g.circle((wx+2000)/4000*512,py,34)}
   return g}
 
-// 遠方的老樹：沿用主體樹的做法——貼圖樹幹、根裙、板根鰭，但大幅降低細節以維持流暢
-function drawFarTree(f){
-  const s=f.r/R,h0=H0*s,o=f.r+(OUT-R)*s,fin=4,D=5,len=(o-f.r+12*s)/D;
-  const fog=1-f.f;
+// ── 不會動的裝飾：在 setup 用 buildGeometry 合併成一整塊，之後每幀只要 1 次繪製呼叫 ──
+function drawFarTrunk(f){                    // 遠樹的貼圖樹幹留在外面（貼圖合併風險高，只 22 次）
+  const s=f.r/R;
   push();translate(f.x,0,f.z);
-  push();translate(0,-900,0);texture(barkTex);cylinder(f.r,1800,12,1,false,false);pop();
-  push();translate(0,-30*s,0);texture(barkTex);cylinder(f.r+16*s,60*s,12,1,false,false);pop();
-  const a0=f.x*.013+f.z*.007;            // 每棵樹的板根角度不同
-  for(let k=0;k<fin;k++){push();rotateY(a0+k*TWO_PI/fin);
-    for(let i=0;i<D;i++){const t=(i+.5)/D,hh=h0*Math.pow(1-t,2);
-      push();translate(f.r-12*s+t*(o-f.r+12*s),-hh/2,0);
-      const c=lerpColor(color(84,60,44),color(66,112,56),t*.85);
-      fill(red(c)*fog,green(c)*fog,blue(c)*fog);box(len+.5,hh,34*s);pop()}
-    pop()}
-  const dx=cos(PI/4),dz=sin(PI/4);
-  push();translate(dx*(f.r+52*s),-2,dz*(f.r+52*s));scale(1,.2,1);fill(58*fog,132*fog,70*fog);sphere(58*s,14,10);pop();
+  push();translate(0,-900,0);texture(barkTex);cylinder(f.r,1800,10,1,false,false);pop();
+  push();translate(0,-30*s,0);texture(barkTex);cylinder(f.r+16*s,60*s,10,1,false,false);pop();
   pop();
+}
+function buildFarFins(){                     // 所有遠樹的板根鰭＋根部苔丘，全部併成一塊
+  for(const f of farTrees){
+    const s=f.r/R,h0=H0*s,o=f.r+(OUT-R)*s,fin=4,D=3,len=(o-f.r+12*s)/D,fog=1-f.f;
+    push();translate(f.x,0,f.z);
+    const a0=f.x*.013+f.z*.007;              // 每棵樹的板根角度不同
+    for(let k=0;k<fin;k++){push();rotateY(a0+k*TWO_PI/fin);
+      for(let i=0;i<D;i++){const t=(i+.5)/D,hh=h0*Math.pow(1-t,2);
+        push();translate(f.r-12*s+t*(o-f.r+12*s),-hh/2,0);
+        const c=lerpColor(color(84,60,44),color(66,112,56),t*.85);
+        fill(red(c)*fog,green(c)*fog,blue(c)*fog);box(len+.5,hh,34*s);pop()}
+      pop()}
+    push();translate(cos(PI/4)*(f.r+52*s),-2,sin(PI/4)*(f.r+52*s));scale(1,.2,1);fill(58*fog,132*fog,70*fog);sphere(58*s,14,10);pop();
+    pop();
+  }
+}
+function buildMainFins(){                    // 主體樹的板根鰭＋綠頂
+  const N=10,len=(OUT-R+12)/N;
+  for(const a of finAngs){push();rotateY(-a);
+    for(let i=0;i<N;i++){const t=(i+.5)/N,h=fh(t);push();translate(R-12+t*(OUT-R+12),-h/2,0);
+      fill(lerpColor(color(84,60,44),color(70,100,58),t*.7));box(len+.5,h,34);
+      translate(0,-h/2,0);fill(66,122,60);box(len+.8,3,38);pop()}
+    pop()}
+}
+function buildMounds(){
+  for(const m of mounds){push();translate(m.x,0,m.z);scale(1,.35,1);fill(m.c[0],m.c[1],m.c[2]);sphere(m.r,10,8);pop()}
+}
+function buildShrooms(){
+  for(const s of shrooms){push();translate(s.x,0,s.z);fill(200,215,205);translate(0,-s.s*.9,0);cylinder(s.s*.3,s.s*1.8,6,1);
+    translate(0,-s.s*.9,0);scale(1,.6,1);fill(120,230,210);sphere(s.s,8,6);pop()}
 }
 
 function mouseTarget(){

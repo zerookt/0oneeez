@@ -1,7 +1,8 @@
 const R=120,H0=200,OUT=240;
 let barkTex,groundTex,yaw=.7,pitch=.2,camD=340,tx=0,ty=-120,tz=0,ex=0,ey=0,ez=0,shake=0,moved=0,pressF=0,hoverFly=false,pressing=false;
-const finAngs=[],gaps=[],mounds=[],shrooms=[],farTrees=[],spores=[],leaves=[],fungi=[],drops=[],flow=[],ripples=[];
-const P={x:260,y:-130,z:110,vx:0,vy:0,vz:0,yaw:3.14159,pit:0,roll:0,hyd:1,glow:.6,curl:0,qt:0};
+const finAngs=[],gaps=[],mounds=[],shrooms=[],farTrees=[],spores=[],leaves=[],fungi=[],drops=[],flow=[],ripples=[],sparks=[];
+const HOME={x:260,y:-130,z:110};   // 牠的棲息點：沒輸入時會慢慢飄回這裡停住
+const P={x:260,y:-130,z:110,vx:0,vy:0,vz:0,yaw:3.14159,pit:0,roll:0,hyd:1,glow:.6,curl:0,qt:0,react:0};
 const cx=z=>420+60*Math.sin(z*.004), hw=z=>88+14*Math.sin(z*.011);
 const fh=t=>H0*Math.pow(1-t,2);
 function angDiff(a,b){let d=(a-b)%TWO_PI;if(d>PI)d-=TWO_PI;if(d<-PI)d+=TWO_PI;return d}
@@ -79,6 +80,26 @@ function mouseTarget(){
   const dep=constrain(Math.hypot(P.x-ex,P.y-ey,P.z-ez)*(boost?2.4:1),120,1400);
   return[ex+ray.x*dep,ey+ray.y*dep,ez+ray.z*dep,boost]}
 
+// 判斷滑鼠指標是不是指在牠身上：把滑鼠射線和牠的球心做最近距離，小於半徑就算點到
+function pippaHit(){
+  const f=createVector(tx-ex,ty-ey,tz-ez).normalize(),up=createVector(0,1,0);
+  const r=p5.Vector.cross(f,up).normalize(),d=p5.Vector.cross(r,f),th=tan(PI/6);
+  const nx=(mouseX/width-.5)*2,ny=(mouseY/height-.5)*2;
+  const ray=f.copy().add(r.mult(nx*th*width/height)).add(d.mult(ny*th)).normalize();
+  const ox=P.x-ex,oy=P.y-ey,oz=P.z-ez,t=ox*ray.x+oy*ray.y+oz*ray.z;
+  if(t<=0)return false;                       // 在鏡頭後面
+  return Math.hypot(P.x-(ex+ray.x*t),P.y-(ey+ray.y*t),P.z-(ez+ray.z*t))<28;
+}
+
+// 被摸到的反應：核心閃一下、身體彈一下、噴出一圈彩色小光點
+function reactToPet(){
+  P.react=72;P.glow=1;
+  for(let i=0;i<22;i++){const a=random(TWO_PI),s=random(.6,1.8);
+    sparks.push({x:P.x+random(-6,6),y:P.y+random(-6,6),z:P.z+random(-6,6),
+      vx:cos(a)*s,vy:random(-1.5,-.2),vz:sin(a)*s,life:1,r:random(1.2,2.6),
+      c:random()<.45?[255,140,180]:random()<.5?[255,225,140]:[190,250,235]})}
+}
+
 function update(){
   // 鍵盤飛行：方向以鏡頭的水平朝向為準
   let ix=0,iz=0,iy=0;
@@ -98,13 +119,18 @@ function update(){
       P.vx*=.96;P.vy*=.96;P.vz*=.96;
       const sp=Math.hypot(P.vx,P.vy,P.vz),mx=9;if(sp>mx){P.vx*=mx/sp;P.vy*=mx/sp;P.vz*=mx/sp}
     }else{
-      let g,boost=false;
+      let boost=false,g=null;
       if(hoverFly||pressing){const m=mouseTarget();g=[m[0],m[1],m[2]];boost=m[3]}
-      else{const t=frameCount*.004;g=[cos(t)*270,-150+sin(t*2)*40,sin(t)*270]}
-      let ax=g[0]-P.x,ay=g[1]-P.y,az=g[2]-P.z;const d=Math.hypot(ax,ay,az)||1,k=min(.5,d*.006)/d;
-      P.vx+=ax*k;P.vy+=ay*k;P.vz+=az*k;
-      P.vx*=.93;P.vy*=.93;P.vz*=.93;
-      const sp=Math.hypot(P.vx,P.vy,P.vz),mx=boost?11:7.5;if(sp>mx){P.vx*=mx/sp;P.vy*=mx/sp;P.vz*=mx/sp}
+      if(g){
+        let ax=g[0]-P.x,ay=g[1]-P.y,az=g[2]-P.z;const d=Math.hypot(ax,ay,az)||1,k=min(.5,d*.006)/d;
+        P.vx+=ax*k;P.vy+=ay*k;P.vz+=az*k;
+        P.vx*=.93;P.vy*=.93;P.vz*=.93;
+        const sp=Math.hypot(P.vx,P.vy,P.vz),mx=boost?11:7.5;if(sp>mx){P.vx*=mx/sp;P.vy*=mx/sp;P.vz*=mx/sp}
+      }else{
+        // 沒有輸入：慢慢飄回棲息點，然後停在原地，只留呼吸般的浮動
+        P.vx+=(HOME.x-P.x)*.0016;P.vy+=(HOME.y-P.y)*.0016;P.vz+=(HOME.z-P.z)*.0016;
+        P.vx*=.92;P.vy*=.92;P.vz*=.92;
+      }
     }
   }
   P.x+=P.vx;P.y+=P.vy+sin(frameCount*.07)*.15;P.z+=P.vz;
@@ -117,6 +143,7 @@ function update(){
   if(sp>.3){const t=atan2(P.vx,P.vz),d=angDiff(t,P.yaw);P.yaw+=d*.1;P.roll=lerp(P.roll,constrain(d*2.4,-.6,.6),.1)}
   else P.roll*=.9;
   P.pit=lerp(P.pit,constrain(-P.vy*.1,-.6,.6),.1);
+  if(P.react>0)P.react--;                    // 被點到之後的反應計時
   P.glow=max(.5,P.glow-.003);P.hyd=max(0,P.hyd-.0002);
   // symbiosis: she drinks harmful fungus (and spreads healing moss), the tree offers nectar
   if(P.curl<.3){
@@ -196,6 +223,11 @@ function draw(){
     for(let k=0;k<5;k++){fill(255,235,160,9*s[2]);plane(40+k*34,1200)}pop()}
   for(const s of shrooms){push();translate(s.x,-1.5,s.z);rotateX(HALF_PI);fill(110,230,210,16);circle(0,0,s.s*9);pop()}
   for(const f of fungi)if(f.hl>.05){push();translate(...fpos(f));fill(150,255,170,16*f.hl);sphere(20+4*sin(frameCount*.05),10,8);pop()}
+  // 被摸到時噴出的小光點
+  for(let i=sparks.length-1;i>=0;i--){const s=sparks[i];
+    s.x+=s.vx;s.y+=s.vy;s.z+=s.vz;s.vy+=.012;s.vx*=.97;s.vz*=.97;s.life-=.014;
+    if(s.life<=0){sparks.splice(i,1);continue}
+    push();translate(s.x,s.y,s.z);fill(s.c[0],s.c[1],s.c[2],235*s.life);sphere(s.r*s.life,6,5);pop()}
   push();stroke(255,238,170,170);
   for(const p of spores){p.x+=sin(frameCount*.01+p.ph)*.25;p.y+=cos(frameCount*.013+p.ph)*.15-.03;p.z+=cos(frameCount*.009+p.ph)*.25;
     if(p.y<-540)p.y=-10;if(p.y>-6)p.y=-520;strokeWeight(p.s*(1+.4*sin(frameCount*.05+p.ph)));point(p.x,p.y,p.z)}
@@ -225,8 +257,9 @@ const STR=[[-11,-5,-9],[11,-5,-9],[-9,8,-9],[9,8,-9]];
 const strand=(i,u,T,spd)=>{const t=STR[i];return[t[0]*(1+u*1.5)+sin(T*.1+u*5+i*1.7)*u*7*(.5+spd),t[1]*(1+u*1.1)+cos(T*.08+u*4+i)*u*6+u*u*10,t[2]-u*(1-P.curl*.8)*50]};
 function drawPippa(){
   const c=P.curl,spd=min(Math.hypot(P.vx,P.vy,P.vz)/6,1),T=frameCount,g=P.glow,pale=(1-P.hyd)*.5;
+  const happy=P.react>0,pop=happy?1+.22*sin((72-P.react)*.45)*(P.react/72):1;   // 被摸到時彈一下
   push();translate(P.x,P.y,P.z);rotateY(P.yaw);rotateX(P.pit);rotateZ(P.roll);
-  scale((.9+.1*P.hyd)*(1-.2*c)*(1+.05*sin(T*.9)*c),(.9+.1*P.hyd)*(1-.2*c)*(1+.04*sin(T*.05)),(1-.2*c)*(1+.06*spd));
+  scale(pop*(.9+.1*P.hyd)*(1-.2*c)*(1+.05*sin(T*.9)*c),pop*(.9+.1*P.hyd)*(1-.2*c)*(1+.04*sin(T*.05)),pop*(1-.2*c)*(1+.06*spd));
   // trailing tendrils ending in warm glowing orbs
   for(let i=0;i<4;i++){
     for(let k=1;k<12;k++){push();translate(...strand(i,k/12,T,spd));fill(235,245,255,170);sphere(.7,5,4);pop()}
@@ -242,10 +275,12 @@ function drawPippa(){
     emissiveMaterial(255*g,225*g,140*g);fill(255,235,160);sphere(.9+.3*sin(T*.08+i+q),6,5);pop()}});
   // face
   const blink=T%220<6;
-  for(const s of[-1,1]){push();translate(s*5.6,-1,11.6);if(blink)scale(1.3,.22,1);fill(22,52,90);sphere(3.2,12,10);
-    if(!blink){translate(1,-1.3,2.3);fill(255);sphere(1.2,6,5);translate(-2,2.4,0);fill(160,215,255);sphere(.6,5,4)}pop();
-    push();translate(s*9.4,3.2,8.8);scale(1,.7,.35);fill(255,150,175,200);sphere(3,8,6);pop()}
-  push();translate(0,4.2,12.8);scale(1.6,.5,.4);fill(220,120,140);sphere(1,6,5);pop();
+  for(const s of[-1,1]){push();translate(s*5.6,-1,11.6);
+    if(happy)scale(1.25,.32,1);else if(blink)scale(1.3,.22,1);   // 開心瞇眼 / 眨眼
+    fill(22,52,90);sphere(3.2,12,10);
+    if(!blink&&!happy){translate(1,-1.3,2.3);fill(255);sphere(1.2,6,5);translate(-2,2.4,0);fill(160,215,255);sphere(.6,5,4)}pop();
+    push();translate(s*9.4,3.2,8.8);scale(happy?1.4:1,.7,.35);fill(255,150,175,happy?235:200);sphere(3,8,6);pop()}
+  push();translate(0,4.2,12.8);scale(1.6,happy?1.2:.5,.4);fill(220,120,140);sphere(1,6,5);pop();
   // glass lobes: nearly clear body + additive rim shell + sharp specular glints (back to front)
   drawingContext.depthMask(false);
   LOBES.forEach((l,i)=>{
@@ -269,6 +304,6 @@ function keyPressed(){
 }
 function mousePressed(){moved=0;pressF=frameCount;pressing=true}
 function mouseDragged(){yaw-=(mouseX-pmouseX)*.006;pitch=constrain(pitch+(mouseY-pmouseY)*.006,-.25,1.35);moved+=abs(mouseX-pmouseX)+abs(mouseY-pmouseY);return false}
-function mouseReleased(){pressing=false;if(moved<6&&frameCount-pressF<=12)quake()}
+function mouseReleased(){pressing=false;if(moved<6&&frameCount-pressF<=12){if(pippaHit())reactToPet();else quake()}}
 function mouseWheel(e){camD=constrain(camD*exp(e.delta*.001),150,1200);return false}
 function windowResized(){resizeCanvas(innerWidth,innerHeight)}

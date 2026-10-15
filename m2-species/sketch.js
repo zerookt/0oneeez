@@ -254,17 +254,12 @@ function draw(){
   camera(ex+random(-shake,shake),ey+random(-shake,shake),ez,tx,ty,tz,0,1,0);
   lights3();
 
-  if(!BARE)for(const f of farTrees)if(Math.hypot(f.x-P.x,f.z-P.z)<1400)drawFarTree(f);   // 太遠的不畫，省效能
+  if(!BARE){for(const f of farTrees)drawFarTrunk(f);model(farGeom)}   // 樹幹 22 次 ＋ 所有板根 1 次
   push();rotateX(HALF_PI);texture(groundTex);plane(4000,4000);pop();
-  if(!BARE)for(const m of mounds){push();translate(m.x,0,m.z);scale(1,.35,1);fill(m.c[0],m.c[1],m.c[2]);sphere(m.r,10,8);pop()}
-  push();translate(0,-1100,0);texture(barkTex);cylinder(R,2200,40,1,false,false);pop();
-  push();translate(0,-30,0);texture(barkTex);cylinder(R+16,60,40,1,false,false);pop();
-  const N=16,len=(OUT-R+12)/N;
-  for(const a of finAngs){push();rotateY(-a);
-    for(let i=0;i<N;i++){const t=(i+.5)/N,h=fh(t);push();translate(R-12+t*(OUT-R+12),-h/2,0);
-      fill(lerpColor(color(84,60,44),color(70,100,58),t*.7));box(len+.5,h,34);
-      translate(0,-h/2,0);fill(66,122,60);box(len+.8,3,38);pop()}
-    pop()}
+  if(!BARE)model(moundGeom);
+  push();translate(0,-1100,0);texture(barkTex);cylinder(R,2200,24,1,false,false);pop();
+  push();translate(0,-30,0);texture(barkTex);cylinder(R+16,60,24,1,false,false);pop();
+  model(finGeom);
   const dx=cos(PI/4),dz=sin(PI/4);
   push();translate(dx*(R+52),-2,dz*(R+52));scale(1,.2,1);fill(58,132,70);sphere(58,14,10);pop();
   const bump=[[0,0,1],[-9,5,.7],[8,6,.8],[-5,-8,.6],[7,-7,.7],[1,11,.5]];
@@ -274,8 +269,7 @@ function draw(){
         push();translate(b[0]*f.s,b[1]*f.s,3.4*b[2]*f.s);fill(235,150,90);sphere(1.6*f.s,6,5);pop()}
       if(f.hl>.02){push();translate(b[0]*1.2,b[1]*1.2,2);fill(120,238,160);sphere(3.6*b[2]*f.hl*(1+.12*sin(frameCount*.06+b[0])),8,6);pop()}}
     pop()}
-  if(!BARE)for(const s of shrooms){push();translate(s.x,0,s.z);fill(200,215,205);translate(0,-s.s*.9,0);cylinder(s.s*.3,s.s*1.8,6,1);
-    translate(0,-s.s*.9,0);scale(1,.6,1);fill(120,230,210);sphere(s.s,8,6);pop()}
+  if(!BARE)model(shroomGeom);
 
   noLights();
   fill(38,108,118,175);beginShape(TRIANGLE_STRIP);

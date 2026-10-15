@@ -22,7 +22,7 @@ function setup(){
   const ok=(x,z)=>abs(x-cx(z))>150;
   while(mounds.length<45){const x=random(-1200,1200),z=random(-1200,1200);if(Math.hypot(x,z)>300&&ok(x,z))mounds.push({x,z,r:random(22,70),c:[random(40,70),random(95,140),random(55,80)]})}
   while(shrooms.length<30){const x=random(-900,900),z=random(-900,900);if(Math.hypot(x,z)>270&&ok(x,z))shrooms.push({x,z,s:random(3,7)})}
-  while(farTrees.length<18){const a=random(TWO_PI),d=random(650,1650),x=cos(a)*d,z=sin(a)*d;if(x>280&&x<580)continue;
+  while(farTrees.length<12){const a=random(TWO_PI),d=random(650,1650),x=cos(a)*d,z=sin(a)*d;if(x>280&&x<580)continue;
     farTrees.push({x,z,r:random(90,170),f:constrain(d/1750,0,1)})}
   for(let i=0;i<10;i++)fungi.push({a:random(gaps)+random(-.08,.08),h:random(55,420),s:1,hl:0});
   for(let i=0;i<9;i++)drops.push({a:random(gaps)+random(-.08,.08),h:random(60,420),s:1,ph:random(6)});
@@ -51,23 +51,20 @@ function makeGround(){
   for(let py=0;py<512;py+=2){const wx=cx(py/512*4000-2000);g.fill(24,44,40,170);g.circle((wx+2000)/4000*512,py,34)}
   return g}
 
-// 遠方的老樹：沿用主體樹的做法——貼圖樹幹、根裙、帶綠頂的板根鰭，只是縮小、降低細節
+// 遠方的老樹：沿用主體樹的做法——貼圖樹幹、根裙、板根鰭，但大幅降低細節以維持流暢
 function drawFarTree(f){
-  const s=f.r/R,h0=H0*s,o=f.r+(OUT-R)*s,fin=4,D=6,len=(o-f.r+12*s)/D;
-  const fog=1-f.f;                       // 越遠越暗，保留原本的距離感
+  const s=f.r/R,h0=H0*s,o=f.r+(OUT-R)*s,fin=3,D=5,len=(o-f.r+12*s)/D;
+  const fog=1-f.f;
   push();translate(f.x,0,f.z);
-  push();translate(0,-900,0);texture(barkTex);cylinder(f.r,1800,20,1,false,false);pop();
-  push();translate(0,-30*s,0);texture(barkTex);cylinder(f.r+16*s,60*s,24,1,false,false);pop();
+  push();translate(0,-900,0);texture(barkTex);cylinder(f.r,1800,8,1,false,false);pop();
+  push();translate(0,-30*s,0);texture(barkTex);cylinder(f.r+16*s,60*s,8,1,false,false);pop();
   const a0=f.x*.013+f.z*.007;            // 每棵樹的板根角度不同
   for(let k=0;k<fin;k++){push();rotateY(a0+k*TWO_PI/fin);
-    for(let i=0;i<D;i++){const t=(i+.5)/D,hh=h0*Math.pow(1-t,2);
+    for(let i=0;i<D;i++){const t=(i+.5)/D,hh=h0*Math.pow(1-t,2);   // 外側偏綠，代替綠頂那一顆方塊
       push();translate(f.r-12*s+t*(o-f.r+12*s),-hh/2,0);
-      const c=lerpColor(color(84,60,44),color(70,100,58),t*.7);
-      fill(red(c)*fog,green(c)*fog,blue(c)*fog);box(len+.5,hh,34*s);
-      translate(0,-hh/2,0);fill(66*fog,122*fog,60*fog);box(len+.8,3,38*s);pop()}
+      const c=lerpColor(color(84,60,44),color(60,120,58),t*.9);
+      fill(red(c)*fog,green(c)*fog,blue(c)*fog);box(len+.5,hh,34*s);pop()}
     pop()}
-  const dx=cos(PI/4),dz=sin(PI/4);
-  push();translate(dx*(f.r+52*s),-2,dz*(f.r+52*s));scale(1,.2,1);fill(58*fog,132*fog,70*fog);sphere(58*s,14,10);pop();
   pop();
 }
 

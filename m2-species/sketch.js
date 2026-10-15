@@ -1,4 +1,6 @@
-const R=120,H0=200,OUT=240;
+const R=120,H0=200,OUT=240,RS=.62;   // RS＝渲染縮放：用較小的解析度算，再由 CSS 放大，最省效能
+const BARE=/bare/.test(location.search);   // 網址加 ?bare 可只留場地主體，用來抓效能兇手
+const fpsEl=document.getElementById('fps');
 let barkTex,groundTex,yaw=.7,pitch=.2,camD=340,tx=0,ty=-120,tz=0,ex=0,ey=0,ez=0,shake=0,moved=0,pressF=0,hoverFly=false,pressing=false;
 const finAngs=[],gaps=[],mounds=[],shrooms=[],farTrees=[],spores=[],leaves=[],fungi=[],drops=[],flow=[],ripples=[],sparks=[];
 const HOME={x:260,y:-130,z:110};   // 牠的棲息點：沒輸入時會慢慢飄回這裡停住
@@ -14,19 +16,19 @@ const fpos=f=>[cos(f.a)*(R+4),-f.h,sin(f.a)*(R+4)];
 const dpos=d=>[cos(d.a)*(R+3),-d.h,sin(d.a)*(R+3)];
 
 function setup(){
-  createCanvas(innerWidth,innerHeight,WEBGL);pixelDensity(min(2,devicePixelRatio));
+  createCanvas(innerWidth*RS,innerHeight*RS,WEBGL);pixelDensity(1);
   randomSeed(11);noiseSeed(5);
   for(let i=0;i<8;i++)if(i!==1)finAngs.push(i*PI/4);
   for(let k=2;k<8;k++)gaps.push((k+.5)*PI/4);gaps.push(PI/4);
   barkTex=makeBark();groundTex=makeGround();
   const ok=(x,z)=>abs(x-cx(z))>150;
-  while(mounds.length<45){const x=random(-1200,1200),z=random(-1200,1200);if(Math.hypot(x,z)>300&&ok(x,z))mounds.push({x,z,r:random(22,70),c:[random(40,70),random(95,140),random(55,80)]})}
-  while(shrooms.length<30){const x=random(-900,900),z=random(-900,900);if(Math.hypot(x,z)>270&&ok(x,z))shrooms.push({x,z,s:random(3,7)})}
-  while(farTrees.length<12){const a=random(TWO_PI),d=random(650,1650),x=cos(a)*d,z=sin(a)*d;if(x>280&&x<580)continue;
+  while(mounds.length<18){const x=random(-1200,1200),z=random(-1200,1200);if(Math.hypot(x,z)>300&&ok(x,z))mounds.push({x,z,r:random(22,70),c:[random(40,70),random(95,140),random(55,80)]})}
+  while(shrooms.length<14){const x=random(-900,900),z=random(-900,900);if(Math.hypot(x,z)>270&&ok(x,z))shrooms.push({x,z,s:random(3,7)})}
+  while(farTrees.length<8){const a=random(TWO_PI),d=random(650,1650),x=cos(a)*d,z=sin(a)*d;if(x>280&&x<580)continue;
     farTrees.push({x,z,r:random(90,170),f:constrain(d/1750,0,1)})}
   for(let i=0;i<10;i++)fungi.push({a:random(gaps)+random(-.08,.08),h:random(55,420),s:1,hl:0});
   for(let i=0;i<9;i++)drops.push({a:random(gaps)+random(-.08,.08),h:random(60,420),s:1,ph:random(6)});
-  for(let i=0;i<100;i++)spores.push({x:random(-800,800),y:random(-520,-10),z:random(-800,800),s:random(2,5),ph:random(6)});
+  for(let i=0;i<50;i++)spores.push({x:random(-800,800),y:random(-520,-10),z:random(-800,800),s:random(2,5),ph:random(6)});
   const w0=P;tx=w0.x;ty=w0.y;tz=w0.z;
 }
 
@@ -53,7 +55,7 @@ function makeGround(){
 
 // 遠方的老樹：沿用主體樹的做法——貼圖樹幹、根裙、板根鰭，但大幅降低細節以維持流暢
 function drawFarTree(f){
-  const s=f.r/R,h0=H0*s,o=f.r+(OUT-R)*s,fin=3,D=5,len=(o-f.r+12*s)/D;
+  const s=f.r/R,h0=H0*s,o=f.r+(OUT-R)*s,fin=3,D=4,len=(o-f.r+12*s)/D;
   const fog=1-f.f;
   push();translate(f.x,0,f.z);
   push();translate(0,-900,0);texture(barkTex);cylinder(f.r,1800,8,1,false,false);pop();
@@ -175,20 +177,20 @@ function draw(){
   tx=lerp(tx,P.x,.07);ty=lerp(ty,P.y,.07);tz=lerp(tz,P.z,.07);
   if(P.qt>0)shake=max(shake,P.qt/150*10);shake*=.93;
   background(22,44,40);
+  if(frameCount%15===0&&fpsEl)fpsEl.textContent=Math.round(frameRate())+' fps';
   perspective(PI/3,width/height,5,12000);
   camera(ex+random(-shake,shake),ey+random(-shake,shake),ez,tx,ty,tz,0,1,0);
   lights3();
 
-  for(const f of farTrees)drawFarTree(f);
+  if(!BARE)for(const f of farTrees)if(Math.hypot(f.x-P.x,f.z-P.z)<1400)drawFarTree(f);   // 太遠的不畫，省效能
   push();rotateX(HALF_PI);texture(groundTex);plane(4000,4000);pop();
-  for(const m of mounds){push();translate(m.x,0,m.z);scale(1,.35,1);fill(m.c[0],m.c[1],m.c[2]);sphere(m.r,10,8);pop()}
+  if(!BARE)for(const m of mounds){push();translate(m.x,0,m.z);scale(1,.35,1);fill(m.c[0],m.c[1],m.c[2]);sphere(m.r,10,8);pop()}
   push();translate(0,-1100,0);texture(barkTex);cylinder(R,2200,40,1,false,false);pop();
   push();translate(0,-30,0);texture(barkTex);cylinder(R+16,60,40,1,false,false);pop();
-  const N=16,len=(OUT-R+12)/N;
+  const N=8,len=(OUT-R+12)/N;
   for(const a of finAngs){push();rotateY(-a);
     for(let i=0;i<N;i++){const t=(i+.5)/N,h=fh(t);push();translate(R-12+t*(OUT-R+12),-h/2,0);
-      fill(lerpColor(color(84,60,44),color(70,100,58),t*.7));box(len+.5,h,34);
-      translate(0,-h/2,0);fill(66,122,60);box(len+.8,3,38);pop()}
+      fill(lerpColor(color(84,60,44),color(60,120,58),t*.9));box(len+.5,h,34);pop()}
     pop()}
   const dx=cos(PI/4),dz=sin(PI/4);
   push();translate(dx*(R+52),-2,dz*(R+52));scale(1,.2,1);fill(58,132,70);sphere(58,14,10);pop();
@@ -199,7 +201,7 @@ function draw(){
         push();translate(b[0]*f.s,b[1]*f.s,3.4*b[2]*f.s);fill(235,150,90);sphere(1.6*f.s,6,5);pop()}
       if(f.hl>.02){push();translate(b[0]*1.2,b[1]*1.2,2);fill(120,238,160);sphere(3.6*b[2]*f.hl*(1+.12*sin(frameCount*.06+b[0])),8,6);pop()}}
     pop()}
-  for(const s of shrooms){push();translate(s.x,0,s.z);fill(200,215,205);translate(0,-s.s*.9,0);cylinder(s.s*.3,s.s*1.8,6,1);
+  if(!BARE)for(const s of shrooms){push();translate(s.x,0,s.z);fill(200,215,205);translate(0,-s.s*.9,0);cylinder(s.s*.3,s.s*1.8,6,1);
     translate(0,-s.s*.9,0);scale(1,.6,1);fill(120,230,210);sphere(s.s,8,6);pop()}
 
   noLights();
@@ -214,9 +216,9 @@ function draw(){
     translate(-1.2,-1.4,3);fill(255,255,255,200);sphere(1.2*s+.01,6,5);pop()}
   drawingContext.depthMask(false);blendMode(ADD);
   const sf=sunPos();
-  for(let k=0;k<6;k++){push();translate(sf.x,-2.8,sf.z);rotateX(HALF_PI);fill(255,230,150,14+k*5);ellipse(0,0,150-k*20,115-k*15);pop()}
+  if(!BARE)for(let k=0;k<6;k++){push();translate(sf.x,-2.8,sf.z);rotateX(HALF_PI);fill(255,230,150,14+k*5);ellipse(0,0,150-k*20,115-k*15);pop()}
   const sh=[[sf.x,sf.z,1],[-260,-380,.5],[-420,260,.6],[160,-520,.5],[-120,520,.45]];
-  for(const s of sh){push();translate(s[0],-550,s[1]);rotateY(atan2(ex-s[0],ez-s[1]));rotateZ(.14);
+  if(!BARE)for(const s of sh){push();translate(s[0],-550,s[1]);rotateY(atan2(ex-s[0],ez-s[1]));rotateZ(.14);
     for(let k=0;k<5;k++){fill(255,235,160,9*s[2]);plane(40+k*34,1200)}pop()}
   for(const s of shrooms){push();translate(s.x,-1.5,s.z);rotateX(HALF_PI);fill(110,230,210,16);circle(0,0,s.s*9);pop()}
   for(const f of fungi)if(f.hl>.05){push();translate(...fpos(f));fill(150,255,170,16*f.hl);sphere(20+4*sin(frameCount*.05),10,8);pop()}
@@ -226,7 +228,7 @@ function draw(){
     if(s.life<=0){sparks.splice(i,1);continue}
     push();translate(s.x,s.y,s.z);fill(s.c[0],s.c[1],s.c[2],235*s.life);sphere(s.r*s.life,6,5);pop()}
   push();stroke(255,238,170,170);
-  for(const p of spores){p.x+=sin(frameCount*.01+p.ph)*.25;p.y+=cos(frameCount*.013+p.ph)*.15-.03;p.z+=cos(frameCount*.009+p.ph)*.25;
+  if(!BARE)for(const p of spores){p.x+=sin(frameCount*.01+p.ph)*.25;p.y+=cos(frameCount*.013+p.ph)*.15-.03;p.z+=cos(frameCount*.009+p.ph)*.25;
     if(p.y<-540)p.y=-10;if(p.y>-6)p.y=-520;strokeWeight(p.s*(1+.4*sin(frameCount*.05+p.ph)));point(p.x,p.y,p.z)}
   strokeWeight(5);
   for(let i=flow.length-1;i>=0;i--){const q=flow[i];q.x+=(P.x-q.x)*.1;q.y+=(P.y-q.y)*.1;q.z+=(P.z-q.z)*.1;
@@ -254,12 +256,12 @@ const STR=[[-11,-5,-9],[11,-5,-9],[-9,8,-9],[9,8,-9]];
 const strand=(i,u,T,spd)=>{const t=STR[i];return[t[0]*(1+u*1.5)+sin(T*.1+u*5+i*1.7)*u*7*(.5+spd),t[1]*(1+u*1.1)+cos(T*.08+u*4+i)*u*6+u*u*10,t[2]-u*(1-P.curl*.8)*50]};
 function drawPippa(){
   const c=P.curl,spd=min(Math.hypot(P.vx,P.vy,P.vz)/6,1),T=frameCount,g=P.glow,pale=(1-P.hyd)*.5;
-  const happy=P.react>0,pop=happy?1+.22*sin((72-P.react)*.45)*(P.react/72):1;   // 被摸到時彈一下
+  const happy=P.react>0,bounce=happy?1+.22*sin((72-P.react)*.45)*(P.react/72):1;   // 被摸到時彈一下
   push();translate(P.x,P.y,P.z);rotateY(P.yaw);rotateX(P.pit);rotateZ(P.roll);
-  scale(pop*(.9+.1*P.hyd)*(1-.2*c)*(1+.05*sin(T*.9)*c),pop*(.9+.1*P.hyd)*(1-.2*c)*(1+.04*sin(T*.05)),pop*(1-.2*c)*(1+.06*spd));
+  scale(bounce*(.9+.1*P.hyd)*(1-.2*c)*(1+.05*sin(T*.9)*c),bounce*(.9+.1*P.hyd)*(1-.2*c)*(1+.04*sin(T*.05)),bounce*(1-.2*c)*(1+.06*spd));
   // trailing tendrils ending in warm glowing orbs
   for(let i=0;i<4;i++){
-    for(let k=1;k<12;k++){push();translate(...strand(i,k/12,T,spd));fill(235,245,255,170);sphere(.7,5,4);pop()}
+    for(let k=1;k<7;k++){push();translate(...strand(i,k/7,T,spd));fill(235,245,255,170);sphere(.7,5,4);pop()}
     const e=strand(i,1,T,spd);
     push();translate(...e);emissiveMaterial(255*g,215*g,120*g);fill(255,235,170);sphere(2.8,10,8);pop();
     push();translate(...e);fill(255,230,150,50);sphere(6+1.5*sin(T*.07+i),10,8);pop()}
@@ -274,8 +276,8 @@ function drawPippa(){
   const blink=T%220<6;
   for(const s of[-1,1]){push();translate(s*5.6,-1,11.6);
     if(happy)scale(1.25,.32,1);else if(blink)scale(1.3,.22,1);   // 開心瞇眼 / 眨眼
-    fill(22,52,90);sphere(3.2,12,10);
-    if(!blink&&!happy){translate(1,-1.3,2.3);fill(255);sphere(1.2,6,5);translate(-2,2.4,0);fill(160,215,255);sphere(.6,5,4)}pop();
+    fill(22,52,90);sphere(2.4,12,10);
+    if(!blink&&!happy){translate(.8,-1,1.9);fill(255);sphere(.9,6,5);translate(-1.6,1.8,0);fill(160,215,255);sphere(.45,5,4)}pop();
     push();translate(s*9.4,3.2,8.8);scale(happy?1.4:1,.7,.35);fill(255,150,175,happy?235:200);sphere(3,8,6);pop()}
   push();translate(0,4.2,12.8);scale(1.6,happy?1.2:.5,.4);fill(220,120,140);sphere(1,6,5);pop();
   // glass lobes: nearly clear body + additive rim shell + sharp specular glints (back to front)
@@ -284,9 +286,9 @@ function drawPippa(){
     const t=TINT[i%4],k=i==10?.8:1,r=l[3]*(1+.05*sin(T*.05+i*1.3)),m=1-c*.5;
     push();translate(l[0]*m+sin(T*.03+i)*.8,l[1]*m+cos(T*.025+i*2)*.8,l[2]*m);
     // faint cool shell just outside the body -> reads as a glassy rim
-    blendMode(ADD);fill(170,232,238,24*k);sphere(r*1.07,16,12);blendMode(BLEND);
-    // body: low alpha so the golden core and background show through
-    fill(lerp(t[0],235,pale),lerp(t[1],235,pale),lerp(t[2],235,pale),42*k);sphere(r,20,14);
+    blendMode(ADD);fill(170,232,238,24*k);sphere(r*1.07,12,9);blendMode(BLEND);
+    // body: 半透明，還看得到金色核心與背景，但不再透明到像空的
+    fill(lerp(t[0],235,pale),lerp(t[1],235,pale),lerp(t[2],235,pale),72*k);sphere(r,16,12);
     // the glass cue: one sharp glint + a tiny secondary sparkle
     push();translate(-r*.42,-r*.52,r*.54);scale(1,.5,.3);fill(255,255,255,240);sphere(r*.19,8,6);pop();
     push();translate(r*.46,r*.36,-r*.08);fill(255,255,255,150);sphere(r*.07,6,5);pop();
@@ -303,4 +305,4 @@ function mousePressed(){moved=0;pressF=frameCount;pressing=true}
 function mouseDragged(){yaw-=(mouseX-pmouseX)*.006;pitch=constrain(pitch+(mouseY-pmouseY)*.006,-.25,1.35);moved+=abs(mouseX-pmouseX)+abs(mouseY-pmouseY);return false}
 function mouseReleased(){pressing=false;if(moved<6&&frameCount-pressF<=12){if(pippaHit())reactToPet();else quake()}}
 function mouseWheel(e){camD=constrain(camD*exp(e.delta*.001),150,1200);return false}
-function windowResized(){resizeCanvas(innerWidth,innerHeight)}
+function windowResized(){resizeCanvas(innerWidth*RS,innerHeight*RS)}

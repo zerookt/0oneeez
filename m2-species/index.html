@@ -6,9 +6,11 @@
 :root{--bg:#162c28;--fg:#d9f2e4}
 @media (prefers-color-scheme: dark){:root{--bg:#162c28;--fg:#d9f2e4}}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg)}
-canvas{display:block;touch-action:none}
+canvas{display:block;touch-action:none;width:100%!important;height:100%!important}
+#fps{position:fixed;top:6px;left:8px;font:12px/1.4 system-ui,sans-serif;color:var(--fg);opacity:.6;pointer-events:none}
 #hint{position:fixed;left:0;right:0;bottom:calc(10px + env(safe-area-inset-bottom,0px));text-align:center;font:12px/1.4 system-ui,sans-serif;color:var(--fg);opacity:.5;pointer-events:none}
 </style></head><body>
+<div id="fps"></div>
 <div id="hint">WASD／方向鍵移動 ・ Space↑ Shift↓ ・ 拖曳轉視角 ・ 按住左鍵＝衝刺 ・ 點牠＝互動 ・ 點空白＝震動 ・ M＝滑鼠飛行</div>
 <script src="p5.min.js"></script>
 <script src="sketch.js"></script>

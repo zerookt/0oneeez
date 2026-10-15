@@ -1,13 +1,22 @@
-const R=120,H0=200,OUT=240,RS=.62;   // RS＝渲染縮放：用較小的解析度算，再由 CSS 放大，最省效能
+const R=120,H0=200,OUT=240;
 const BARE=/bare/.test(location.search);   // 網址加 ?bare 可只留場地主體，用來抓效能兇手
 const fpsEl=document.getElementById('fps');
 const faceBtn=document.getElementById('faceBtn');
-let faceCam=false,uiClick=false;   // faceCam＝轉為正面直視鏡頭
+let faceCam=false,workMs=0;   // faceCam＝正面直視鏡頭；workMs＝這一幀實際運算花幾毫秒
 function toggleFace(){faceCam=!faceCam;
   if(faceBtn){faceBtn.classList.toggle('on',faceCam);faceBtn.textContent=faceCam?'取消直視':'正面看我'}}
-if(faceBtn)faceBtn.addEventListener('mousedown',()=>{uiClick=true});
-if(faceBtn)faceBtn.addEventListener('click',()=>{toggleFace();uiClick=false});
+if(faceBtn)faceBtn.addEventListener('click',()=>toggleFace());
+// 觸控面板：按住方向鈕就持續轉，放開就停（滑鼠、觸控都通用）
+const cam={l:0,r:0,u:0,d:0,zi:0,zo:0};
+// 判斷事件是不是發生在「面板／按鈕」上，是的話就別讓它觸發場景拖曳或震動
+function isUI(ev){return !!(ev&&ev.target&&ev.target.closest&&ev.target.closest('.ui'))}
+document.querySelectorAll('[data-cam]').forEach(b=>{
+  const k=b.dataset.cam,on=()=>{cam[k]=1;b.classList.add('on')},off=()=>{cam[k]=0;b.classList.remove('on')};
+  b.addEventListener('pointerdown',e=>{e.preventDefault();on()});
+  b.addEventListener('pointerup',off);b.addEventListener('pointerleave',off);b.addEventListener('pointercancel',off)});
 let barkTex,groundTex,yaw=.7,pitch=.2,camD=340,tx=0,ty=-120,tz=0,ex=0,ey=0,ez=0,shake=0,moved=0,pressF=0,hoverFly=false,pressing=false;
+// 不會動的裝飾（板根、苔丘、磨菇）先在 setup 合併成一塊幾何，之後每幀只要 1 次繪製呼叫
+let finGeom,farGeom,moundGeom,shroomGeom,padDrag=null;
 const finAngs=[],gaps=[],mounds=[],shrooms=[],farTrees=[],spores=[],leaves=[],fungi=[],drops=[],flow=[],ripples=[],sparks=[];
 const HOME={x:260,y:-130,z:110};   // 牠的棲息點：沒輸入時會慢慢飄回這裡停住
 const P={x:260,y:-130,z:110,vx:0,vy:0,vz:0,yaw:3.14159,pit:0,roll:0,hyd:1,glow:.6,curl:0,qt:0,react:0};
@@ -22,20 +31,43 @@ const fpos=f=>[cos(f.a)*(R+4),-f.h,sin(f.a)*(R+4)];
 const dpos=d=>[cos(d.a)*(R+3),-d.h,sin(d.a)*(R+3)];
 
 function setup(){
-  createCanvas(innerWidth*RS,innerHeight*RS,WEBGL);pixelDensity(1);
+  createCanvas(innerWidth,innerHeight,WEBGL);pixelDensity(min(1.5,devicePixelRatio));
   randomSeed(11);noiseSeed(5);
+  const padSurf=document.getElementById('padsurf');
   for(let i=0;i<8;i++)if(i!==1)finAngs.push(i*PI/4);
   for(let k=2;k<8;k++)gaps.push((k+.5)*PI/4);gaps.push(PI/4);
   barkTex=makeBark();groundTex=makeGround();
   const ok=(x,z)=>abs(x-cx(z))>150;
-  while(mounds.length<18){const x=random(-1200,1200),z=random(-1200,1200);if(Math.hypot(x,z)>300&&ok(x,z))mounds.push({x,z,r:random(22,70),c:[random(40,70),random(95,140),random(55,80)]})}
-  while(shrooms.length<14){const x=random(-900,900),z=random(-900,900);if(Math.hypot(x,z)>270&&ok(x,z))shrooms.push({x,z,s:random(3,7)})}
-  while(farTrees.length<8){const a=random(TWO_PI),d=random(650,1650),x=cos(a)*d,z=sin(a)*d;if(x>280&&x<580)continue;
+  while(mounds.length<28){const x=random(-1200,1200),z=random(-1200,1200);if(Math.hypot(x,z)>300&&ok(x,z))mounds.push({x,z,r:random(22,70),c:[random(40,70),random(95,140),random(55,80)]})}
+  while(shrooms.length<18){const x=random(-900,900),z=random(-900,900);if(Math.hypot(x,z)>270&&ok(x,z))shrooms.push({x,z,s:random(3,7)})}
+  while(farTrees.length<11){const a=random(TWO_PI),d=random(650,1650),x=cos(a)*d,z=sin(a)*d;if(x>280&&x<580)continue;
     farTrees.push({x,z,r:random(90,170),f:constrain(d/1750,0,1)})}
-  for(let i=0;i<10;i++)fungi.push({a:random(gaps)+random(-.08,.08),h:random(55,420),s:1,hl:0});
+  for(let i=0;i<7;i++)fungi.push({a:random(gaps)+random(-.08,.08),h:random(55,420),s:1,hl:0});
   for(let i=0;i<9;i++)drops.push({a:random(gaps)+random(-.08,.08),h:random(60,420),s:1,ph:random(6)});
-  for(let i=0;i<50;i++)spores.push({x:random(-800,800),y:random(-520,-10),z:random(-800,800),s:random(2,5),ph:random(6)});
+  for(let i=0;i<100;i++)spores.push({x:random(-800,800),y:random(-520,-10),z:random(-800,800),s:random(2,5),ph:random(6)});
   const w0=P;tx=w0.x;ty=w0.y;tz=w0.z;
+
+  // ★ 效能關鍵：把「不會動」的裝飾合併成一塊幾何。畫面上幾百次繪製呼叫 → 4 次
+  noStroke();
+  finGeom=buildGeometry(buildMainFins);
+  farGeom=buildGeometry(buildFarFins);
+  moundGeom=buildGeometry(buildMounds);
+  shroomGeom=buildGeometry(buildShrooms);
+
+  // ★ 觸控面板的「滑動區」：手指在方塊上滑動就等於拖曳轉視角
+  if(padSurf){
+    padSurf.addEventListener('pointerdown',e=>{padDrag={x:e.clientX,y:e.clientY};
+      try{padSurf.setPointerCapture(e.pointerId)}catch(err){}
+      padSurf.style.cursor='grabbing';e.preventDefault()});
+    padSurf.addEventListener('pointermove',e=>{if(!padDrag)return;
+      yaw-=(e.clientX-padDrag.x)*.012;                                   // 左右滑＝水平轉
+      pitch=constrain(pitch+(e.clientY-padDrag.y)*.008,-.25,1.35);        // 上下滑＝俯仰
+      padDrag={x:e.clientX,y:e.clientY};e.preventDefault()});
+    const endPad=()=>{padDrag=null;padSurf.style.cursor='grab'};
+    padSurf.addEventListener('pointerup',endPad);
+    padSurf.addEventListener('pointercancel',endPad);
+    padSurf.addEventListener('lostpointercapture',endPad);
+  }
 }
 
 function makeBark(){
@@ -61,18 +93,20 @@ function makeGround(){
 
 // 遠方的老樹：沿用主體樹的做法——貼圖樹幹、根裙、板根鰭，但大幅降低細節以維持流暢
 function drawFarTree(f){
-  const s=f.r/R,h0=H0*s,o=f.r+(OUT-R)*s,fin=3,D=4,len=(o-f.r+12*s)/D;
+  const s=f.r/R,h0=H0*s,o=f.r+(OUT-R)*s,fin=4,D=5,len=(o-f.r+12*s)/D;
   const fog=1-f.f;
   push();translate(f.x,0,f.z);
-  push();translate(0,-900,0);texture(barkTex);cylinder(f.r,1800,8,1,false,false);pop();
-  push();translate(0,-30*s,0);texture(barkTex);cylinder(f.r+16*s,60*s,8,1,false,false);pop();
+  push();translate(0,-900,0);texture(barkTex);cylinder(f.r,1800,12,1,false,false);pop();
+  push();translate(0,-30*s,0);texture(barkTex);cylinder(f.r+16*s,60*s,12,1,false,false);pop();
   const a0=f.x*.013+f.z*.007;            // 每棵樹的板根角度不同
   for(let k=0;k<fin;k++){push();rotateY(a0+k*TWO_PI/fin);
-    for(let i=0;i<D;i++){const t=(i+.5)/D,hh=h0*Math.pow(1-t,2);   // 外側偏綠，代替綠頂那一顆方塊
+    for(let i=0;i<D;i++){const t=(i+.5)/D,hh=h0*Math.pow(1-t,2);
       push();translate(f.r-12*s+t*(o-f.r+12*s),-hh/2,0);
-      const c=lerpColor(color(84,60,44),color(60,120,58),t*.9);
+      const c=lerpColor(color(84,60,44),color(66,112,56),t*.85);
       fill(red(c)*fog,green(c)*fog,blue(c)*fog);box(len+.5,hh,34*s);pop()}
     pop()}
+  const dx=cos(PI/4),dz=sin(PI/4);
+  push();translate(dx*(f.r+52*s),-2,dz*(f.r+52*s));scale(1,.2,1);fill(58*fog,132*fog,70*fog);sphere(58*s,14,10);pop();
   pop();
 }
 
@@ -185,12 +219,17 @@ function lights3(){
 
 function draw(){
   noStroke();
+  const t0=millis();
+  // 觸控面板：按住就持續轉視角（左右＝yaw、上下＝pitch、＋－＝遠近）
+  yaw+=(cam.r-cam.l)*.035;
+  pitch=constrain(pitch+(cam.d-cam.u)*.02,-.25,1.35);
+  camD=constrain(camD*(1+(cam.zo-cam.zi)*.012),150,1200);
   ex=tx+camD*cos(pitch)*sin(yaw);ey=min(ty-camD*sin(pitch),-12);ez=tz+camD*cos(pitch)*cos(yaw);
   update();
   tx=lerp(tx,P.x,.07);ty=lerp(ty,P.y,.07);tz=lerp(tz,P.z,.07);
   if(P.qt>0)shake=max(shake,P.qt/150*10);shake*=.93;
   background(22,44,40);
-  if(frameCount%15===0&&fpsEl)fpsEl.textContent=Math.round(frameRate())+' fps';
+  if(frameCount%15===0&&fpsEl)fpsEl.textContent=Math.round(frameRate())+' fps ・ 運算 '+workMs.toFixed(1)+' ms';
   perspective(PI/3,width/height,5,12000);
   camera(ex+random(-shake,shake),ey+random(-shake,shake),ez,tx,ty,tz,0,1,0);
   lights3();
@@ -200,10 +239,11 @@ function draw(){
   if(!BARE)for(const m of mounds){push();translate(m.x,0,m.z);scale(1,.35,1);fill(m.c[0],m.c[1],m.c[2]);sphere(m.r,10,8);pop()}
   push();translate(0,-1100,0);texture(barkTex);cylinder(R,2200,40,1,false,false);pop();
   push();translate(0,-30,0);texture(barkTex);cylinder(R+16,60,40,1,false,false);pop();
-  const N=8,len=(OUT-R+12)/N;
+  const N=16,len=(OUT-R+12)/N;
   for(const a of finAngs){push();rotateY(-a);
     for(let i=0;i<N;i++){const t=(i+.5)/N,h=fh(t);push();translate(R-12+t*(OUT-R+12),-h/2,0);
-      fill(lerpColor(color(84,60,44),color(60,120,58),t*.9));box(len+.5,h,34);pop()}
+      fill(lerpColor(color(84,60,44),color(70,100,58),t*.7));box(len+.5,h,34);
+      translate(0,-h/2,0);fill(66,122,60);box(len+.8,3,38);pop()}
     pop()}
   const dx=cos(PI/4),dz=sin(PI/4);
   push();translate(dx*(R+52),-2,dz*(R+52));scale(1,.2,1);fill(58,132,70);sphere(58,14,10);pop();
@@ -229,10 +269,10 @@ function draw(){
     translate(-1.2,-1.4,3);fill(255,255,255,200);sphere(1.2*s+.01,6,5);pop()}
   drawingContext.depthMask(false);blendMode(ADD);
   const sf=sunPos();
-  if(!BARE)for(let k=0;k<6;k++){push();translate(sf.x,-2.8,sf.z);rotateX(HALF_PI);fill(255,230,150,14+k*5);ellipse(0,0,150-k*20,115-k*15);pop()}
+  if(!BARE)for(let k=0;k<3;k++){push();translate(sf.x,-2.8,sf.z);rotateX(HALF_PI);fill(255,230,150,18+k*8);ellipse(0,0,150-k*34,115-k*24);pop()}
   const sh=[[sf.x,sf.z,1],[-260,-380,.5],[-420,260,.6],[160,-520,.5],[-120,520,.45]];
   if(!BARE)for(const s of sh){push();translate(s[0],-550,s[1]);rotateY(atan2(ex-s[0],ez-s[1]));rotateZ(.14);
-    for(let k=0;k<5;k++){fill(255,235,160,9*s[2]);plane(40+k*34,1200)}pop()}
+    for(let k=0;k<2;k++){fill(255,235,160,16*s[2]);plane(56+k*74,1200)}pop()}
   for(const s of shrooms){push();translate(s.x,-1.5,s.z);rotateX(HALF_PI);fill(110,230,210,16);circle(0,0,s.s*9);pop()}
   for(const f of fungi)if(f.hl>.05){push();translate(...fpos(f));fill(150,255,170,16*f.hl);sphere(20+4*sin(frameCount*.05),10,8);pop()}
   // 被摸到時噴出的小光點
@@ -240,9 +280,12 @@ function draw(){
     s.x+=s.vx;s.y+=s.vy;s.z+=s.vz;s.vy+=.012;s.vx*=.97;s.vz*=.97;s.life-=.014;
     if(s.life<=0){sparks.splice(i,1);continue}
     push();translate(s.x,s.y,s.z);fill(s.c[0],s.c[1],s.c[2],235*s.life);sphere(s.r*s.life,6,5);pop()}
-  push();stroke(255,238,170,170);
-  if(!BARE)for(const p of spores){p.x+=sin(frameCount*.01+p.ph)*.25;p.y+=cos(frameCount*.013+p.ph)*.15-.03;p.z+=cos(frameCount*.009+p.ph)*.25;
-    if(p.y<-540)p.y=-10;if(p.y>-6)p.y=-520;strokeWeight(p.s*(1+.4*sin(frameCount*.05+p.ph)));point(p.x,p.y,p.z)}
+  push();stroke(255,238,170,170);strokeWeight(3.4);
+  // 孢子改成一次畫完（原本 100 顆 = 100 次繪製呼叫，現在 = 1 次）
+  if(!BARE){beginShape(POINTS);
+    for(const p of spores){p.x+=sin(frameCount*.01+p.ph)*.25;p.y+=cos(frameCount*.013+p.ph)*.15-.03;p.z+=cos(frameCount*.009+p.ph)*.25;
+      if(p.y<-540)p.y=-10;if(p.y>-6)p.y=-520;vertex(p.x,p.y,p.z)}
+    endShape()}
   strokeWeight(5);
   for(let i=flow.length-1;i>=0;i--){const q=flow[i];q.x+=(P.x-q.x)*.1;q.y+=(P.y-q.y)*.1;q.z+=(P.z-q.z)*.1;
     if(Math.hypot(P.x-q.x,P.y-q.y,P.z-q.z)<12){flow.splice(i,1);continue}
@@ -260,6 +303,7 @@ function draw(){
   [[-20,-10],[8,-18],[4,14]].forEach((o,i)=>{push();translate(dx*(R+52)-dz*o[0]+dx*o[1],-7,dz*(R+52)+dx*o[0]+dz*o[1]);
     fill(255,205,90);sphere(2+.5*sin(frameCount*.06+i*2),8,6);fill(215,255,240,105);sphere(7,14,10);pop()});
   drawPippa();
+  workMs=workMs*.85+(millis()-t0)*.15;   // 平滑後的「每幀實際運算時間」
 }
 
 // Pippa: a drifting cluster of translucent jade-pearl bubbles with a golden core
@@ -274,7 +318,7 @@ function drawPippa(){
   scale(bounce*(.9+.1*P.hyd)*(1-.2*c)*(1+.05*sin(T*.9)*c),bounce*(.9+.1*P.hyd)*(1-.2*c)*(1+.04*sin(T*.05)),bounce*(1-.2*c)*(1+.06*spd));
   // trailing tendrils ending in warm glowing orbs
   for(let i=0;i<4;i++){
-    for(let k=1;k<7;k++){push();translate(...strand(i,k/7,T,spd));fill(235,245,255,170);sphere(.7,5,4);pop()}
+    for(let k=1;k<8;k++){push();translate(...strand(i,k/8,T,spd));fill(235,245,255,170);sphere(.7,5,4);pop()}
     const e=strand(i,1,T,spd);
     push();translate(...e);emissiveMaterial(255*g,215*g,120*g);fill(255,235,170);sphere(2.8,10,8);pop();
     push();translate(...e);fill(255,230,150,50);sphere(6+1.5*sin(T*.07+i),10,8);pop()}
@@ -289,8 +333,7 @@ function drawPippa(){
   const blink=T%220<6;
   for(const s of[-1,1]){push();translate(s*5.6,-1,11.6);
     if(happy)scale(1.25,.32,1);else if(blink)scale(1.3,.22,1);   // 開心瞇眼 / 眨眼
-    fill(22,52,90);sphere(2.4,12,10);
-    if(!blink&&!happy){translate(.8,-1,1.9);fill(255);sphere(.9,6,5);translate(-1.6,1.8,0);fill(160,215,255);sphere(.45,5,4)}pop();
+    fill(15,20,28);sphere(1.5,8,6);pop();
     push();translate(s*9.4,3.2,8.8);scale(happy?1.4:1,.7,.35);fill(255,150,175,happy?235:200);sphere(3,8,6);pop()}
   push();translate(0,4.2,12.8);scale(1.6,happy?1.2:.5,.4);fill(220,120,140);sphere(1,6,5);pop();
   // glass lobes: nearly clear body + additive rim shell + sharp specular glints (back to front)
@@ -299,9 +342,9 @@ function drawPippa(){
     const t=TINT[i%4],k=i==10?.8:1,r=l[3]*(1+.05*sin(T*.05+i*1.3)),m=1-c*.5;
     push();translate(l[0]*m+sin(T*.03+i)*.8,l[1]*m+cos(T*.025+i*2)*.8,l[2]*m);
     // faint cool shell just outside the body -> reads as a glassy rim
-    blendMode(ADD);fill(170,232,238,24*k);sphere(r*1.07,12,9);blendMode(BLEND);
-    // body: 半透明，還看得到金色核心與背景，但不再透明到像空的
-    fill(lerp(t[0],235,pale),lerp(t[1],235,pale),lerp(t[2],235,pale),72*k);sphere(r,16,12);
+    blendMode(ADD);fill(170,232,238,24*k);sphere(r*1.07,14,10);blendMode(BLEND);
+    // body: 半透明但夠清楚，看得到金色核心
+    fill(lerp(t[0],235,pale),lerp(t[1],235,pale),lerp(t[2],235,pale),148*k);sphere(r,18,13);
     // the glass cue: one sharp glint + a tiny secondary sparkle
     push();translate(-r*.42,-r*.52,r*.54);scale(1,.5,.3);fill(255,255,255,240);sphere(r*.19,8,6);pop();
     push();translate(r*.46,r*.36,-r*.08);fill(255,255,255,150);sphere(r*.07,6,5);pop();
@@ -316,8 +359,15 @@ function keyPressed(){
   if(key==='r'||key==='R'){P.x=HOME.x;P.y=HOME.y;P.z=HOME.z;P.vx=P.vy=P.vz=0;return false}
   if(keyCode===32||(keyCode>=37&&keyCode<=40))return false;   // 空白與方向鍵不要捲動頁面
 }
-function mousePressed(){if(uiClick)return;moved=0;pressF=frameCount;pressing=true}
-function mouseDragged(){yaw-=(mouseX-pmouseX)*.006;pitch=constrain(pitch+(mouseY-pmouseY)*.006,-.25,1.35);moved+=abs(mouseX-pmouseX)+abs(mouseY-pmouseY);return false}
-function mouseReleased(){if(uiClick)return;pressing=false;if(moved<6&&frameCount-pressF<=12){if(pippaHit())reactToPet();else quake()}}
+// 拖曳＝轉視角（滑鼠與觸控共用同一套邏輯）
+function lookStart(ev){if(isUI(ev))return;moved=0;pressF=frameCount;pressing=true;return false}
+function lookDrag(){yaw-=(mouseX-pmouseX)*.006;pitch=constrain(pitch+(mouseY-pmouseY)*.006,-.25,1.35);moved+=abs(mouseX-pmouseX)+abs(mouseY-pmouseY)}
+function lookTap(){pressing=false;if(moved<6&&frameCount-pressF<=12){if(pippaHit())reactToPet();else quake()}}
+function mousePressed(ev){lookStart(ev)}
+function mouseDragged(ev){if(isUI(ev))return;lookDrag();return false}
+function mouseReleased(ev){if(isUI(ev))return;lookTap()}
+function touchStarted(ev){return lookStart(ev)}
+function touchMoved(ev){if(isUI(ev))return false;lookDrag();return false}
+function touchEnded(ev){if(isUI(ev))return false;lookTap();return false}
 function mouseWheel(e){camD=constrain(camD*exp(e.delta*.001),150,1200);return false}
-function windowResized(){resizeCanvas(innerWidth*RS,innerHeight*RS)}
+function windowResized(){resizeCanvas(innerWidth,innerHeight)}

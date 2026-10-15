@@ -6,14 +6,37 @@
 :root{--bg:#162c28;--fg:#d9f2e4}
 @media (prefers-color-scheme: dark){:root{--bg:#162c28;--fg:#d9f2e4}}
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg)}
-canvas{display:block;touch-action:none;width:100%!important;height:100%!important}
+canvas{display:block;touch-action:none}
 #fps{position:fixed;top:6px;left:8px;font:12px/1.4 system-ui,sans-serif;color:var(--fg);opacity:.6;pointer-events:none}
-#faceBtn{position:fixed;top:8px;right:8px;padding:7px 12px;font:13px/1.3 system-ui,sans-serif;color:#d9f2e4;background:rgba(16,52,44,.8);border:1px solid rgba(217,242,228,.4);border-radius:8px;cursor:pointer}
-#faceBtn.on{background:rgba(130,225,180,.9);color:#0c2a20;border-color:#9ff0c8;font-weight:700}
+button{font:13px/1.3 system-ui,sans-serif;color:#d9f2e4;background:rgba(16,52,44,.78);border:1px solid rgba(217,242,228,.35);border-radius:9px;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:none}
+button.on{background:rgba(130,225,180,.9);color:#0c2a20;border-color:#9ff0c8;font-weight:700}
+#faceBtn{position:fixed;top:8px;right:8px;padding:7px 12px}
+#pad{position:fixed;right:10px;bottom:calc(48px + env(safe-area-inset-bottom,0px));display:grid;grid-template-columns:repeat(3,46px);grid-template-rows:repeat(3,42px);gap:5px;z-index:5}
+#pad button{font-size:16px}
+#pad .lab{display:grid;place-items:center;font:11px/1 system-ui,sans-serif;color:var(--fg);opacity:.45;pointer-events:none}
+#pad [data-cam="zi"]{grid-area:1/1}
+#pad [data-cam="u"] {grid-area:1/2}
+#pad [data-cam="zo"]{grid-area:1/3}
+#pad [data-cam="l"] {grid-area:2/1}
+#pad .lab        {grid-area:2/2}
+#pad [data-cam="r"] {grid-area:2/3}
+#pad [data-cam="d"] {grid-area:3/2}
 #hint{position:fixed;left:0;right:0;bottom:calc(10px + env(safe-area-inset-bottom,0px));text-align:center;font:12px/1.4 system-ui,sans-serif;color:var(--fg);opacity:.5;pointer-events:none}
 </style></head><body>
 <div id="fps"></div>
-<button id="faceBtn">正面看我</button>
+<button id="faceBtn" class="ui">正面看我</button>
+
+<!-- 觸控面板：按住就會一直轉，放開就停。用手機或滑鼠都能操作 -->
+<div id="pad" class="ui">
+  <button data-cam="zi" title="拉近">＋</button>
+  <button data-cam="u"  title="視角往上">▲</button>
+  <button data-cam="zo" title="拉遠">－</button>
+  <button data-cam="l"  title="視角往左">◀</button>
+  <span class="lab">視角</span>
+  <button data-cam="r"  title="視角往右">▶</button>
+  <button data-cam="d"  title="視角往下">▼</button>
+</div>
+
 <div id="hint">WASD／方向鍵移動 ・ Space↑ Shift↓ ・ 拖曳轉視角 ・ 點牠＝互動 ・ 點空白＝震動 ・ F＝正面看我 ・ R＝回起始點 ・ M＝滑鼠飛行</div>
 <script src="p5.min.js"></script>
 <script src="sketch.js"></script>

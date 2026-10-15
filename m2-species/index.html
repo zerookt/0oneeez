@@ -8,10 +8,13 @@
 html,body{margin:0;height:100%;overflow:hidden;background:var(--bg)}
 canvas{display:block;touch-action:none;width:100%!important;height:100%!important}
 #fps{position:fixed;top:6px;left:8px;font:12px/1.4 system-ui,sans-serif;color:var(--fg);opacity:.6;pointer-events:none}
+#faceBtn{position:fixed;top:8px;right:8px;padding:7px 12px;font:13px/1.3 system-ui,sans-serif;color:#d9f2e4;background:rgba(16,52,44,.8);border:1px solid rgba(217,242,228,.4);border-radius:8px;cursor:pointer}
+#faceBtn.on{background:rgba(130,225,180,.9);color:#0c2a20;border-color:#9ff0c8;font-weight:700}
 #hint{position:fixed;left:0;right:0;bottom:calc(10px + env(safe-area-inset-bottom,0px));text-align:center;font:12px/1.4 system-ui,sans-serif;color:var(--fg);opacity:.5;pointer-events:none}
 </style></head><body>
 <div id="fps"></div>
-<div id="hint">WASD／方向鍵移動 ・ Space↑ Shift↓ ・ 拖曳轉視角 ・ 按住左鍵＝衝刺 ・ 點牠＝互動 ・ 點空白＝震動 ・ M＝滑鼠飛行</div>
+<button id="faceBtn">正面看我</button>
+<div id="hint">WASD／方向鍵移動 ・ Space↑ Shift↓ ・ 拖曳轉視角 ・ 點牠＝互動 ・ 點空白＝震動 ・ F＝正面看我 ・ R＝回起始點 ・ M＝滑鼠飛行</div>
 <script src="p5.min.js"></script>
 <script src="sketch.js"></script>
 </body></html>

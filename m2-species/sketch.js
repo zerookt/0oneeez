@@ -1,6 +1,12 @@
 const R=120,H0=200,OUT=240,RS=.62;   // RS＝渲染縮放：用較小的解析度算，再由 CSS 放大，最省效能
 const BARE=/bare/.test(location.search);   // 網址加 ?bare 可只留場地主體，用來抓效能兇手
 const fpsEl=document.getElementById('fps');
+const faceBtn=document.getElementById('faceBtn');
+let faceCam=false,uiClick=false;   // faceCam＝轉為正面直視鏡頭
+function toggleFace(){faceCam=!faceCam;
+  if(faceBtn){faceBtn.classList.toggle('on',faceCam);faceBtn.textContent=faceCam?'取消直視':'正面看我'}}
+if(faceBtn)faceBtn.addEventListener('mousedown',()=>{uiClick=true});
+if(faceBtn)faceBtn.addEventListener('click',()=>{toggleFace();uiClick=false});
 let barkTex,groundTex,yaw=.7,pitch=.2,camD=340,tx=0,ty=-120,tz=0,ex=0,ey=0,ez=0,shake=0,moved=0,pressF=0,hoverFly=false,pressing=false;
 const finAngs=[],gaps=[],mounds=[],shrooms=[],farTrees=[],spores=[],leaves=[],fungi=[],drops=[],flow=[],ripples=[],sparks=[];
 const HOME={x:260,y:-130,z:110};   // 牠的棲息點：沒輸入時會慢慢飄回這裡停住
@@ -126,9 +132,8 @@ function update(){
         P.vx*=.93;P.vy*=.93;P.vz*=.93;
         const sp=Math.hypot(P.vx,P.vy,P.vz),mx=boost?11:7.5;if(sp>mx){P.vx*=mx/sp;P.vy*=mx/sp;P.vz*=mx/sp}
       }else{
-        // 沒有輸入：慢慢飄回棲息點，然後停在原地，只留呼吸般的浮動
-        P.vx+=(HOME.x-P.x)*.0016;P.vy+=(HOME.y-P.y)*.0016;P.vz+=(HOME.z-P.z)*.0016;
-        P.vx*=.92;P.vy*=.92;P.vz*=.92;
+        // 沒有輸入：慢慢減速停在原地（不會自己飄回去），只留呼吸般的浮動
+        P.vx*=.9;P.vy*=.9;P.vz*=.9;
       }
     }
   }
@@ -138,10 +143,18 @@ function update(){
   for(const f of farTrees){const dx=P.x-f.x,dz=P.z-f.z,dd=Math.hypot(dx,dz);if(dd<f.r+24){P.x=f.x+dx/dd*(f.r+24);P.z=f.z+dz/dd*(f.r+24)}}
   P.y=constrain(P.y,-1100,-16-groundY(P.x,P.z));P.x=constrain(P.x,-1500,1500);P.z=constrain(P.z,-1500,1500);
   // orientation
-  const sp=Math.hypot(P.vx,P.vz);
-  if(sp>.3){const t=atan2(P.vx,P.vz),d=angDiff(t,P.yaw);P.yaw+=d*.1;P.roll=lerp(P.roll,constrain(d*2.4,-.6,.6),.1)}
-  else P.roll*=.9;
-  P.pit=lerp(P.pit,constrain(-P.vy*.1,-.6,.6),.1);
+  if(faceCam){
+    // 正面直視：把臉轉向攝影機（用鏡頭到牠的方向反推 yaw / pit）
+    const dx=ex-P.x,dy=ey-P.y,dz=ez-P.z,dl=Math.hypot(dx,dy,dz)||1;
+    P.yaw+=angDiff(Math.atan2(dx,dz),P.yaw)*.08;
+    P.pit=lerp(P.pit,-Math.asin(constrain(dy/dl,-1,1)),.08);
+    P.roll*=.9;
+  }else{
+    const sp=Math.hypot(P.vx,P.vz);
+    if(sp>.3){const t=atan2(P.vx,P.vz),d=angDiff(t,P.yaw);P.yaw+=d*.1;P.roll=lerp(P.roll,constrain(d*2.4,-.6,.6),.1)}
+    else P.roll*=.9;
+    P.pit=lerp(P.pit,constrain(-P.vy*.1,-.6,.6),.1);
+  }
   if(P.react>0)P.react--;                    // 被點到之後的反應計時
   P.glow=max(.5,P.glow-.003);P.hyd=max(0,P.hyd-.0002);
   // symbiosis: she drinks harmful fungus (and spreads healing moss), the tree offers nectar
@@ -299,10 +312,12 @@ function drawPippa(){
 
 function keyPressed(){
   if(key==='m'||key==='M'){hoverFly=!hoverFly;return false}
+  if(key==='f'||key==='F'){toggleFace();return false}
+  if(key==='r'||key==='R'){P.x=HOME.x;P.y=HOME.y;P.z=HOME.z;P.vx=P.vy=P.vz=0;return false}
   if(keyCode===32||(keyCode>=37&&keyCode<=40))return false;   // 空白與方向鍵不要捲動頁面
 }
-function mousePressed(){moved=0;pressF=frameCount;pressing=true}
+function mousePressed(){if(uiClick)return;moved=0;pressF=frameCount;pressing=true}
 function mouseDragged(){yaw-=(mouseX-pmouseX)*.006;pitch=constrain(pitch+(mouseY-pmouseY)*.006,-.25,1.35);moved+=abs(mouseX-pmouseX)+abs(mouseY-pmouseY);return false}
-function mouseReleased(){pressing=false;if(moved<6&&frameCount-pressF<=12){if(pippaHit())reactToPet();else quake()}}
+function mouseReleased(){if(uiClick)return;pressing=false;if(moved<6&&frameCount-pressF<=12){if(pippaHit())reactToPet();else quake()}}
 function mouseWheel(e){camD=constrain(camD*exp(e.delta*.001),150,1200);return false}
 function windowResized(){resizeCanvas(innerWidth*RS,innerHeight*RS)}

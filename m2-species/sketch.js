@@ -1,469 +1,229 @@
-// ==============================================================
-// M2 物種雛形：晶靈露露（Lulu / 露生水滴精靈）- 3D 全景版
-// 特色：3D 輕柔果凍水滴、不似鳥類、軟萌依偎神木、互利共生
-// ==============================================================
+const R=120,H0=200,OUT=240;
+let barkTex,groundTex,yaw=.7,pitch=.2,camD=340,tx=0,ty=-120,tz=0,ex=0,ey=0,ez=0,shake=0,moved=0,pressF=0,hasMouse=false;
+const finAngs=[],gaps=[],mounds=[],shrooms=[],farTrees=[],spores=[],leaves=[],fungi=[],drops=[],flow=[],ripples=[];
+const P={x:260,y:-130,z:110,vx:0,vy:0,vz:0,yaw:3.14159,pit:0,roll:0,hyd:1,glow:.6,curl:0,qt:0};
+const cx=z=>420+60*Math.sin(z*.004), hw=z=>88+14*Math.sin(z*.011);
+const fh=t=>H0*Math.pow(1-t,2);
+function angDiff(a,b){let d=(a-b)%TWO_PI;if(d>PI)d-=TWO_PI;if(d<-PI)d+=TWO_PI;return d}
+function groundY(x,z){const r=Math.hypot(x,z),th=atan2(z,x);let m=0;
+  if(r>R-10&&r<OUT){const t=(r-(R-10))/(OUT-R+10);for(const a of finAngs){const d=angDiff(th,a);if(abs(d)<1.2&&abs(r*sin(d))<22)m=max(m,fh(t))}}
+  return m}
+function sunPos(){const a=.75+.5*sin(frameCount*.0035);return{x:cos(a)*300,z:sin(a)*300}}
+const fpos=f=>[cos(f.a)*(R+4),-f.h,sin(f.a)*(R+4)];
+const dpos=d=>[cos(d.a)*(R+3),-d.h,sin(d.a)*(R+3)];
 
-let lulu;             // 3D 角色本體
-let sunDust = [];     // 3D 森林游移光塵
-let loveSparks = [];  // 依偎親近神木時散發的治癒微光
+function setup(){
+  createCanvas(innerWidth,innerHeight,WEBGL);pixelDensity(min(2,devicePixelRatio));
+  randomSeed(11);noiseSeed(5);
+  for(let i=0;i<8;i++)if(i!==1)finAngs.push(i*PI/4);
+  for(let k=2;k<8;k++)gaps.push((k+.5)*PI/4);gaps.push(PI/4);
+  barkTex=makeBark();groundTex=makeGround();
+  const ok=(x,z)=>abs(x-cx(z))>150;
+  while(mounds.length<45){const x=random(-1200,1200),z=random(-1200,1200);if(Math.hypot(x,z)>300&&ok(x,z))mounds.push({x,z,r:random(22,70),c:[random(40,70),random(95,140),random(55,80)]})}
+  while(shrooms.length<30){const x=random(-900,900),z=random(-900,900);if(Math.hypot(x,z)>270&&ok(x,z))shrooms.push({x,z,s:random(3,7)})}
+  while(farTrees.length<18){const a=random(TWO_PI),d=random(650,1650),x=cos(a)*d,z=sin(a)*d;if(x>280&&x<580)continue;
+    farTrees.push({x,z,r:random(90,170),f:constrain(d/1750,0,1)})}
+  for(let i=0;i<10;i++)fungi.push({a:random(gaps)+random(-.08,.08),h:random(55,420),s:1,hl:0});
+  for(let i=0;i<9;i++)drops.push({a:random(gaps)+random(-.08,.08),h:random(60,420),s:1,ph:random(6)});
+  for(let i=0;i<100;i++)spores.push({x:random(-800,800),y:random(-520,-10),z:random(-800,800),s:random(2,5),ph:random(6)});
+  const w0=P;tx=w0.x;ty=w0.y;tz=w0.z;
+}
 
-function setup() {
-  createCanvas(800, 600, WEBGL);
+function makeBark(){
+  const g=createGraphics(256,512);g.pixelDensity(1);g.noStroke();
+  for(let y=0;y<512;y+=3)for(let x=0;x<256;x+=2){
+    const a=x/256*TWO_PI,c1=cos(a)*1.6,c2=sin(a)*1.6;
+    const n=noise(c1+9,c2+9,y*.012)*.7+noise(c1*3+3,c2*3+3,y*.05)*.3;
+    let r=58+n*60,gg=42+n*40,b=32+n*28;
+    const m=constrain(constrain((y-340)/120,0,1)*noise(c1*2+40,c2*2,y*.03)*1.7+constrain(noise(c1*2+70,c2*2+70,y*.02)-.62,0,1)*3,0,1);
+    r=lerp(r,52+n*25,m);gg=lerp(gg,110+n*60,m);b=lerp(b,48+n*20,m);
+    g.fill(r,gg,b);g.rect(x,y,2,3);
+  }
+  g.stroke(25,16,12,150);g.strokeWeight(1.5);
+  for(let i=0;i<60;i++){const x=random(256),y=random(512);g.line(x,y,x+random(-3,3),y+random(20,70))}
+  return g}
+function makeGround(){
+  const g=createGraphics(512,512);g.pixelDensity(1);g.noStroke();g.background(34,70,52);
+  for(let i=0;i<5200;i++){const x=random(512),y=random(512),n=noise(x*.012,y*.012),m=constrain((dist(x,y,256,256)/256-.55)*2.2,0,1);
+    g.fill(lerp(30+n*35,22,m),lerp(70+n*80,44,m),lerp(46+n*30,40,m),200);g.circle(x,y,random(5,14))}
+  for(let i=0;i<700;i++){g.fill(170,225,150,110);g.circle(random(512),random(512),random(1.5,3))}
+  for(let py=0;py<512;py+=2){const wx=cx(py/512*4000-2000);g.fill(24,44,40,170);g.circle((wx+2000)/4000*512,py,34)}
+  return g}
 
-  // 1. 初始化 3D 角色（位於神木板根旁）
-  lulu = new DewSpirit(-125, 10, 40);
+function mouseTarget(){
+  const f=createVector(tx-ex,ty-ey,tz-ez).normalize(),up=createVector(0,1,0);
+  const r=p5.Vector.cross(f,up).normalize(),d=p5.Vector.cross(r,f),th=tan(PI/6);
+  const nx=(mouseX/width-.5)*2,ny=(mouseY/height-.5)*2;
+  const ray=f.copy().add(r.mult(nx*th*width/height)).add(d.mult(ny*th)).normalize();
+  const boost=mouseIsPressed&&moved<6&&frameCount-pressF>12;
+  const dep=constrain(Math.hypot(P.x-ex,P.y-ey,P.z-ez)*(boost?2.4:1),120,1400);
+  return[ex+ray.x*dep,ey+ray.y*dep,ez+ray.z*dep,boost]}
 
-  // 2. 初始化 3D 空間中漂浮的金色光斑與光塵（木漏れ日）
-  for (let i = 0; i < 40; i++) {
-    sunDust.push(new SunParticle());
+function update(){
+  let g,boost=false;
+  if(!hasMouse){const t=frameCount*.004;g=[cos(t)*270,-150+sin(t*2)*40,sin(t)*270]}
+  else{const m=mouseTarget();g=[m[0],m[1],m[2]];boost=m[3]}
+  if(P.qt>0){P.qt--;P.curl=min(1,P.curl+.2);P.vx*=.88;P.vy*=.88;P.vz*=.88}
+  else{
+    P.curl=max(0,P.curl-.05);
+    let ax=g[0]-P.x,ay=g[1]-P.y,az=g[2]-P.z;const d=Math.hypot(ax,ay,az)||1,k=min(.5,d*.006)/d;
+    P.vx+=ax*k;P.vy+=ay*k;P.vz+=az*k;
+    P.vx*=.93;P.vy*=.93;P.vz*=.93;
+    const sp=Math.hypot(P.vx,P.vy,P.vz),mx=boost?11:7.5;if(sp>mx){P.vx*=mx/sp;P.vy*=mx/sp;P.vz*=mx/sp}
+  }
+  P.x+=P.vx;P.y+=P.vy+sin(frameCount*.07)*.15;P.z+=P.vz;
+  // collisions: trunk, far trunks, ground & roots, bounds
+  let r=Math.hypot(P.x,P.z);if(r<R+26){P.x*=(R+26)/r;P.z*=(R+26)/r}
+  for(const f of farTrees){const dx=P.x-f.x,dz=P.z-f.z,dd=Math.hypot(dx,dz);if(dd<f.r+24){P.x=f.x+dx/dd*(f.r+24);P.z=f.z+dz/dd*(f.r+24)}}
+  P.y=constrain(P.y,-1100,-16-groundY(P.x,P.z));P.x=constrain(P.x,-1500,1500);P.z=constrain(P.z,-1500,1500);
+  // orientation
+  const sp=Math.hypot(P.vx,P.vz);
+  if(sp>.3){const t=atan2(P.vx,P.vz),d=angDiff(t,P.yaw);P.yaw+=d*.1;P.roll=lerp(P.roll,constrain(d*2.4,-.6,.6),.1)}
+  else P.roll*=.9;
+  P.pit=lerp(P.pit,constrain(-P.vy*.1,-.6,.6),.1);
+  P.glow=max(.5,P.glow-.003);P.hyd=max(0,P.hyd-.0002);
+  // symbiosis: she drinks harmful fungus (and spreads healing moss), the tree offers nectar
+  if(P.curl<.3){
+    for(const f of fungi){const p=fpos(f);
+      if(f.s>.06&&Math.hypot(P.x-p[0],P.y-p[1],P.z-p[2])<95){f.s-=.006;f.hl=min(1,f.hl+.01);P.glow=min(1,P.glow+.012);
+        if(frameCount%2==0)flow.push({x:p[0]+random(-8,8),y:p[1]+random(-8,8),z:p[2],c:[200,140,230]})}
+      else f.s=min(1,f.s+.0003);
+      if(f.s>.5)f.hl=max(0,f.hl-.0004)}
+    for(const d of drops){const p=dpos(d);
+      if(d.s>.2&&Math.hypot(P.x-p[0],P.y-p[1],P.z-p[2])<80){d.s-=.012;P.glow=min(1,P.glow+.01);P.hyd=min(1,P.hyd+.004);
+        if(frameCount%2==0)flow.push({x:p[0],y:p[1],z:p[2],c:[255,205,80]})}
+      d.s=min(1,d.s+.0012)}
+    if(P.y>-34&&abs(P.x-cx(P.z))<hw(P.z)+10){P.hyd=min(1,P.hyd+.01);if(frameCount%10==0)ripples.push({x:P.x,z:P.z,t:0})}
   }
 }
 
-function draw() {
-  // 深林底色（深邃翠綠）
-  background(20, 32, 26);
+function quake(){
+  P.qt=150;shake=16;
+  for(let i=0;i<40;i++)leaves.push({x:tx+random(-450,450),y:random(-950,-300),z:tz+random(-450,450),vy:random(.8,1.8),ph:random(6),c:random()<.6?[90,150,70]:[210,170,70]})}
 
-  // 一、3D 全域光照系統（營造立體果凍光澤與深林氛圍）
-  ambientLight(70, 95, 85);
-
-  // 穿透林冠的溫暖陽光（來自右上方）
-  directionalLight(255, 245, 215, 0.4, 0.7, -0.6);
-
-  // 露露體內散發的柔和治癒冷光
-  pointLight(160, 255, 230, lulu.x, lulu.y, lulu.z + 50);
-
-  // 依據滑鼠位置微幅旋轉鏡頭（帶來強烈 3D 空間景深感）
-  let camRotY = map(mouseX, 0, width, -0.22, 0.22);
-  let camRotX = map(mouseY, 0, height, 0.18, -0.18);
-  rotateY(camRotY);
-  rotateX(camRotX);
-
-  // 二、繪製 3D 世界環境
-  draw3DTree();   // 左側古老神木與樹洞
-  draw3DStream(); // 右下方緩流清溪與圓潤海玻璃卵石
-
-  // 三、3D 游移光斑粒子
-  for (let p of sunDust) {
-    p.update();
-    p.display();
-  }
-
-  // 四、3D 角色：露露更新與繪製
-  lulu.update();
-  lulu.display();
-
-  // 五、治癒微光愛心粒子
-  for (let i = loveSparks.length - 1; i >= 0; i--) {
-    loveSparks[i].update();
-    loveSparks[i].display();
-    if (loveSparks[i].isDead()) {
-      loveSparks.splice(i, 1);
-    }
-  }
+function lights3(){
+  ambientLight(95,120,110);
+  directionalLight(255,235,190,-.3,.8,-.4);
+  directionalLight(60,90,110,.5,.3,.6);
+  lightFalloff(1,.004,.00003);pointLight(255,190,70+80*P.glow,P.x,P.y-6,P.z);
 }
 
-// 點擊滑鼠：露露開心地蹭蹭神木、分泌治癒凝膠
-function mousePressed() {
-  lulu.triggerNuzzle();
-}
-
-// --------------------------------------------------------------
-// 1. 3D 物種 Class：晶靈露露（DewSpirit）
-// 軟萌、水滴型態、如果凍般輕柔半透明、依偎大樹共生
-// --------------------------------------------------------------
-class DewSpirit {
-  constructor(x, y, z) {
-    this.baseX = x;
-    this.baseY = y;
-    this.baseZ = z;
-    this.x = x;
-    this.y = y;
-    this.z = z;
-
-    // 狀態機：依偎親近大樹（Nuzzling）
-    this.isNuzzling = false;
-    this.nuzzleTimer = 0;
-    this.nextAutoNuzzle = 150; // 每 2.5 秒左右自發蹭蹭大樹
-
-    // 能量核心亮度
-    this.corePulse = 0;
-  }
-
-  update() {
-    // 輕柔上下浮動（宛如在林間空氣與露水微風中漂浮）
-    this.floatOffset = sin(frameCount * 0.04) * 10;
-    // 呼吸律動（軟糯如果凍般縮放）
-    this.squishX = 1 + sin(frameCount * 0.06) * 0.06;
-    this.squishY = 1 - sin(frameCount * 0.06) * 0.05;
-
-    // 自動依偎大樹
-    this.nextAutoNuzzle--;
-    if (this.nextAutoNuzzle <= 0 && !this.isNuzzling) {
-      this.triggerNuzzle();
-      this.nextAutoNuzzle = floor(random(140, 240));
-    }
-
-    // 依偎動作進行中（輕輕湊上前貼蹭樹皮，散發治癒微光）
-    if (this.isNuzzling) {
-      this.nuzzleTimer++;
-      // 向左側神木靠近並輕輕貼住
-      let progress = sin(this.nuzzleTimer * 0.1);
-      this.x = this.baseX - progress * 22;
-      this.y = this.baseY + this.floatOffset - progress * 4;
-
-      // 產生治癒與親暱微光粒子
-      if (this.nuzzleTimer % 7 === 0) {
-        loveSparks.push(new LoveSpark(this.x - 30, this.y - 10, this.z));
-      }
-
-      if (this.nuzzleTimer > 35) {
-        this.isNuzzling = false;
-        this.nuzzleTimer = 0;
-      }
-    } else {
-      this.x = this.baseX;
-      this.y = this.baseY + this.floatOffset;
-      this.z = this.baseZ;
-    }
-
-    // 肚子內部核心的脈動
-    this.corePulse = sin(frameCount * 0.08) * 0.3 + 0.7;
-  }
-
-  triggerNuzzle() {
-    this.isNuzzling = true;
-    this.nuzzleTimer = 0;
-  }
-
-  display() {
-    push();
-    translate(this.x, this.y, this.z);
-
-    // 依偎時身體微微向左傾斜貼向大樹
-    let tilt = this.isNuzzling ? -0.15 : sin(frameCount * 0.03) * 0.05;
-    rotateZ(tilt);
-
-    // 1. 軟萌飄逸的小水滴耳朵 / 觸角（像兔子或精靈般的柔嫩感）
-    this.drawEars();
-
-    // 2. 輕柔半透明果凍水滴主體（超有質感的立體反光）
-    this.drawJellyBody();
-
-    // 3. 腹內發光的溫暖治癒核心（象徵與神木交換的蜜露能量）
-    this.drawGlowingCore();
-
-    // 4. 水汪汪大眼睛與粉嫩腮紅（呆萌可愛臉龐）
-    this.drawCuteFace();
-
-    // 5. 抱抱樹木的小短手與小尾巴
-    this.drawLimbs();
-
-    pop();
-  }
-
-  // 1. 輕柔水滴耳朵（隨風與呼吸悠然擺動）
-  drawEars() {
-    let earSway = sin(frameCount * 0.06) * 0.12;
-
-    // 左耳（偏向大樹）
-    push();
-    translate(-22, -45, 0);
-    rotateZ(-0.35 + earSway);
-    specularMaterial(175, 245, 225);
-    shininess(80);
-    noStroke();
-    ellipsoid(10, 24, 10);
-    pop();
-
-    // 右耳
-    push();
-    translate(22, -45, 0);
-    rotateZ(0.35 - earSway);
-    specularMaterial(175, 245, 225);
-    shininess(80);
-    noStroke();
-    ellipsoid(10, 24, 10);
-    pop();
-  }
-
-  // 2. 圓滾滾水滴果凍軀幹（立體軟糯、高光晶瑩）
-  drawJellyBody() {
-    push();
-    scale(this.squishX, this.squishY, this.squishX);
-
-    // 果凍外層（淺碧玉薄荷綠，極高光澤度呈現晶透質感）
-    specularMaterial(185, 245, 230);
-    shininess(100);
-    noStroke();
-    ellipsoid(46, 52, 42);
-
-    // 頭部上方水滴小隆起（更具水靈感）
-    push();
-    translate(0, -32, 0);
-    ellipsoid(32, 28, 30);
-    pop();
-
-    pop();
-  }
-
-  // 3. 腹部內部發光的金色能量核心（半透明體內透出的溫柔微光）
-  drawGlowingCore() {
-    push();
-    translate(0, 10, 5);
-    emissiveMaterial(255, 215, 120); // 自體發光
-    noStroke();
-    sphere(16 * this.corePulse);
-    pop();
-  }
-
-  // 4. 呆萌小臉：大眼睛與粉嫩腮紅
-  drawCuteFace() {
-    // 視線會微微跟著滑鼠游標轉動
-    let eyeTrackX = map(mouseX, 0, width, -3, 3);
-    let eyeTrackY = map(mouseY, 0, height, -2, 2);
-
-    // 左眼
-    push();
-    translate(-16, -10, 36);
-    // 深黑水汪汪眼珠
-    specularMaterial(30, 45, 40);
-    shininess(90);
-    noStroke();
-    sphere(8);
-    // 眼睛大高光（Pixar 靈動小白點）
-    translate(-2 + eyeTrackX * 0.4, -2 + eyeTrackY * 0.4, 7);
-    emissiveMaterial(255, 255, 255);
-    sphere(2.6);
-    pop();
-
-    // 右眼
-    push();
-    translate(16, -10, 36);
-    specularMaterial(30, 45, 40);
-    shininess(90);
-    noStroke();
-    sphere(8);
-    // 眼睛大高光
-    translate(-2 + eyeTrackX * 0.4, -2 + eyeTrackY * 0.4, 7);
-    emissiveMaterial(255, 255, 255);
-    sphere(2.6);
-    pop();
-
-    // 害羞粉嫩腮紅（左右各一顆）
-    push();
-    translate(-26, 4, 32);
-    emissiveMaterial(255, 160, 175);
-    noStroke();
-    ellipsoid(7, 4, 4);
-    pop();
-
-    push();
-    translate(26, 4, 32);
-    emissiveMaterial(255, 160, 175);
-    noStroke();
-    ellipsoid(7, 4, 4);
-    pop();
-
-    // 圓嘟嘟的小微笑小嘴吻（不再是尖尖的鳥喙！）
-    push();
-    translate(0, 3, 38);
-    emissiveMaterial(255, 190, 190);
-    noStroke();
-    sphere(2.5);
-    pop();
-  }
-
-  // 5. 抱抱神木的軟綿綿小手手與小尾巴
-  drawLimbs() {
-    // 左小手（向左伸展，準備擁抱樹木）
-    push();
-    let reach = this.isNuzzling ? -12 : 0;
-    translate(-36 + reach, 14, 18);
-    rotateZ(0.4);
-    specularMaterial(175, 240, 220);
-    shininess(80);
-    noStroke();
-    ellipsoid(10, 7, 8);
-    pop();
-
-    // 右小手
-    push();
-    translate(36, 14, 18);
-    rotateZ(-0.4);
-    specularMaterial(175, 240, 220);
-    shininess(80);
-    noStroke();
-    ellipsoid(10, 7, 8);
-    pop();
-
-    // 身後圓滾滾的小水滴尾巴
-    push();
-    translate(0, 32, -32);
-    specularMaterial(170, 240, 220);
-    shininess(80);
-    noStroke();
-    sphere(12);
-    pop();
-  }
-}
-
-// --------------------------------------------------------------
-// 2. 3D 環境：古老神木與樹洞（TreeTrunk）
-// --------------------------------------------------------------
-function draw3DTree() {
-  push();
-  // 樹幹位於畫面左側
-  translate(-310, 20, -40);
-  rotateZ(0.04);
-
-  // 1. 深棕厚實巨木主幹
-  specularMaterial(52, 40, 34);
-  shininess(15);
+function draw(){
   noStroke();
-  cylinder(140, 800, 28, 1);
+  ex=tx+camD*cos(pitch)*sin(yaw);ey=min(ty-camD*sin(pitch),-12);ez=tz+camD*cos(pitch)*cos(yaw);
+  update();
+  tx=lerp(tx,P.x,.07);ty=lerp(ty,P.y,.07);tz=lerp(tz,P.z,.07);
+  if(P.qt>0)shake=max(shake,P.qt/150*10);shake*=.93;
+  background(22,44,40);
+  perspective(PI/3,width/height,5,12000);
+  camera(ex+random(-shake,shake),ey+random(-shake,shake),ez,tx,ty,tz,0,1,0);
+  lights3();
 
-  // 2. 樹皮上天鵝絨般的厚實綠苔斑塊
-  push();
-  translate(85, -40, 50);
-  specularMaterial(70, 115, 65);
-  shininess(8);
-  ellipsoid(28, 90, 20);
+  for(const f of farTrees){push();translate(f.x,-900,f.z);fill(lerp(66,22,f.f),lerp(50,44,f.f),lerp(40,40,f.f));cylinder(f.r,1800,14,1,false,false);pop()}
+  push();rotateX(HALF_PI);texture(groundTex);plane(4000,4000);pop();
+  for(const m of mounds){push();translate(m.x,0,m.z);scale(1,.35,1);fill(m.c[0],m.c[1],m.c[2]);sphere(m.r,10,8);pop()}
+  push();translate(0,-1100,0);texture(barkTex);cylinder(R,2200,40,1,false,false);pop();
+  push();translate(0,-30,0);texture(barkTex);cylinder(R+16,60,40,1,false,false);pop();
+  const N=16,len=(OUT-R+12)/N;
+  for(const a of finAngs){push();rotateY(-a);
+    for(let i=0;i<N;i++){const t=(i+.5)/N,h=fh(t);push();translate(R-12+t*(OUT-R+12),-h/2,0);
+      fill(lerpColor(color(84,60,44),color(70,100,58),t*.7));box(len+.5,h,34);
+      translate(0,-h/2,0);fill(66,122,60);box(len+.8,3,38);pop()}
+    pop()}
+  const dx=cos(PI/4),dz=sin(PI/4);
+  push();translate(dx*(R+52),-2,dz*(R+52));scale(1,.2,1);fill(58,132,70);sphere(58,14,10);pop();
+  const bump=[[0,0,1],[-9,5,.7],[8,6,.8],[-5,-8,.6],[7,-7,.7],[1,11,.5]];
+  for(const f of fungi){push();translate(cos(f.a)*(R+1),-f.h,sin(f.a)*(R+1));rotateY(HALF_PI-f.a);
+    for(const b of bump){
+      if(f.s>.03){push();translate(b[0]*f.s,b[1]*f.s,0);scale(1,1,.45);fill(185,150,200);sphere(7*b[2]*f.s,10,8);pop();
+        push();translate(b[0]*f.s,b[1]*f.s,3.4*b[2]*f.s);fill(235,150,90);sphere(1.6*f.s,6,5);pop()}
+      if(f.hl>.02){push();translate(b[0]*1.2,b[1]*1.2,2);fill(120,238,160);sphere(3.6*b[2]*f.hl*(1+.12*sin(frameCount*.06+b[0])),8,6);pop()}}
+    pop()}
+  for(const s of shrooms){push();translate(s.x,0,s.z);fill(200,215,205);translate(0,-s.s*.9,0);cylinder(s.s*.3,s.s*1.8,6,1);
+    translate(0,-s.s*.9,0);scale(1,.6,1);fill(120,230,210);sphere(s.s,8,6);pop()}
+
+  noLights();
+  fill(38,108,118,175);beginShape(TRIANGLE_STRIP);
+  for(let z=-1900;z<=1900;z+=60){const c=cx(z),h=hw(z);vertex(c-h,-1.5,z);vertex(c+h,-1.5,z)}endShape();
+  fill(120,210,210,55);beginShape(TRIANGLE_STRIP);
+  for(let z=-1900;z<=1900;z+=60){const c=cx(z),h=hw(z)*.45;vertex(c-h,-2,z);vertex(c+h,-2,z)}endShape();
+  for(let k=0;k<34;k++){const z=((k*131+frameCount*1.3)%3800)-1900,x=cx(z)+((k*37)%100-50)*1.2;
+    push();translate(x,-2.6,z);rotateX(HALF_PI);fill(225,255,255,75);ellipse(0,0,6,26);pop()}
+  for(const d of drops){push();translate(...dpos(d));
+    const s=d.s*(1+.06*sin(frameCount*.05+d.ph));fill(255,200,70,215);sphere(4.5*s+.01,10,8);
+    translate(-1.2,-1.4,3);fill(255,255,255,200);sphere(1.2*s+.01,6,5);pop()}
+  drawingContext.depthMask(false);blendMode(ADD);
+  const sf=sunPos();
+  for(let k=0;k<6;k++){push();translate(sf.x,-2.8,sf.z);rotateX(HALF_PI);fill(255,230,150,14+k*5);ellipse(0,0,150-k*20,115-k*15);pop()}
+  const sh=[[sf.x,sf.z,1],[-260,-380,.5],[-420,260,.6],[160,-520,.5],[-120,520,.45]];
+  for(const s of sh){push();translate(s[0],-550,s[1]);rotateY(atan2(ex-s[0],ez-s[1]));rotateZ(.14);
+    for(let k=0;k<5;k++){fill(255,235,160,9*s[2]);plane(40+k*34,1200)}pop()}
+  for(const s of shrooms){push();translate(s.x,-1.5,s.z);rotateX(HALF_PI);fill(110,230,210,16);circle(0,0,s.s*9);pop()}
+  for(const f of fungi)if(f.hl>.05){push();translate(...fpos(f));fill(150,255,170,16*f.hl);sphere(20+4*sin(frameCount*.05),10,8);pop()}
+  push();stroke(255,238,170,170);
+  for(const p of spores){p.x+=sin(frameCount*.01+p.ph)*.25;p.y+=cos(frameCount*.013+p.ph)*.15-.03;p.z+=cos(frameCount*.009+p.ph)*.25;
+    if(p.y<-540)p.y=-10;if(p.y>-6)p.y=-520;strokeWeight(p.s*(1+.4*sin(frameCount*.05+p.ph)));point(p.x,p.y,p.z)}
+  strokeWeight(5);
+  for(let i=flow.length-1;i>=0;i--){const q=flow[i];q.x+=(P.x-q.x)*.1;q.y+=(P.y-q.y)*.1;q.z+=(P.z-q.z)*.1;
+    if(Math.hypot(P.x-q.x,P.y-q.y,P.z-q.z)<12){flow.splice(i,1);continue}
+    stroke(q.c[0],q.c[1],q.c[2],220);point(q.x,q.y,q.z)}
+  noFill();strokeWeight(1.5);
+  for(let i=ripples.length-1;i>=0;i--){const r=ripples[i];r.t+=.02;if(r.t>1){ripples.splice(i,1);continue}
+    stroke(220,255,255,200*(1-r.t));push();translate(r.x,-2.8,r.z);rotateX(HALF_PI);circle(0,0,10+r.t*80);pop()}
   pop();
+  blendMode(BLEND);
+  for(let i=leaves.length-1;i>=0;i--){const l=leaves[i];l.y+=l.vy;l.x+=sin(frameCount*.05+l.ph)*.8;if(l.y>-2){leaves.splice(i,1);continue}
+    push();translate(l.x,l.y,l.z);rotateX(frameCount*.05+l.ph);rotateZ(frameCount*.03+l.ph);fill(l.c[0],l.c[1],l.c[2]);plane(12,6);pop()}
+  drawingContext.depthMask(true);
 
-  push();
-  translate(95, 110, 30);
-  specularMaterial(60, 105, 55);
-  shininess(8);
-  ellipsoid(32, 110, 24);
-  pop();
+  lights3();
+  [[-20,-10],[8,-18],[4,14]].forEach((o,i)=>{push();translate(dx*(R+52)-dz*o[0]+dx*o[1],-7,dz*(R+52)+dx*o[0]+dz*o[1]);
+    fill(255,205,90);sphere(2+.5*sin(frameCount*.06+i*2),8,6);fill(215,255,240,105);sphere(7,14,10);pop()});
+  drawPippa();
+}
 
-  // 3. 樹皮滲出的琥珀金「神木甘甜蜜露」（露露最愛吸吮的能量）
-  push();
-  translate(138, 5, 20);
-  emissiveMaterial(255, 195, 70); // 自體發光金黃琥珀
-  noStroke();
-  sphere(11);
-  pop();
-
-  // 4. 板根天然樹洞（露露睡覺的小家）
-  push();
-  translate(110, 220, 30);
-  emissiveMaterial(18, 12, 10);
-  noStroke();
-  ellipsoid(35, 60, 40);
-  pop();
-
+// Pippa: a drifting cluster of translucent jade-pearl bubbles with a golden core
+const LOBES=[[0,0,-11,12],[-10,-1,-9,9],[10,0,-9,9],[-5,15,-5,8],[8,14,-5,7],[-17,6,-4,8],[16,7,-3,8.5],[-15,-7,-3,9],[14,-8,-4,9.5],[0,-16,-4,9],[0,0,0,13.5]];
+const TINT=[[200,248,228],[214,214,248],[250,222,232],[255,240,200]];
+const STR=[[-11,-5,-9],[11,-5,-9],[-9,8,-9],[9,8,-9]];
+const strand=(i,u,T,spd)=>{const t=STR[i];return[t[0]*(1+u*1.5)+sin(T*.1+u*5+i*1.7)*u*7*(.5+spd),t[1]*(1+u*1.1)+cos(T*.08+u*4+i)*u*6+u*u*10,t[2]-u*(1-P.curl*.8)*50]};
+function drawPippa(){
+  const c=P.curl,spd=min(Math.hypot(P.vx,P.vy,P.vz)/6,1),T=frameCount,g=P.glow,pale=(1-P.hyd)*.5;
+  push();translate(P.x,P.y,P.z);rotateY(P.yaw);rotateX(P.pit);rotateZ(P.roll);
+  scale((.9+.1*P.hyd)*(1-.2*c)*(1+.05*sin(T*.9)*c),(.9+.1*P.hyd)*(1-.2*c)*(1+.04*sin(T*.05)),(1-.2*c)*(1+.06*spd));
+  // trailing tendrils ending in warm glowing orbs
+  for(let i=0;i<4;i++){
+    for(let k=1;k<12;k++){push();translate(...strand(i,k/12,T,spd));fill(235,245,255,170);sphere(.7,5,4);pop()}
+    const e=strand(i,1,T,spd);
+    push();translate(...e);emissiveMaterial(255*g,215*g,120*g);fill(255,235,170);sphere(2.8,10,8);pop();
+    push();translate(...e);fill(255,230,150,50);sphere(6+1.5*sin(T*.07+i),10,8);pop()}
+  // golden energy core + tiny glowing cells
+  const pul=.6+.4*sin(T*.07);
+  push();translate(0,1,1);emissiveMaterial(255*g,190*g,50);fill(255,205,70);sphere(4.4+1.1*pul*g,12,10);pop();
+  push();translate(0,1,1);fill(255,210,90,55);sphere(9+3*g*pul,12,10);pop();
+  LOBES.forEach((l,i)=>{for(let q=0;q<2;q++){const a=i*2.3+q*3.1,b=i*1.1+q*2;
+    push();translate(l[0]+cos(a)*l[3]*.6,l[1]+sin(b)*l[3]*.6,l[2]+sin(a)*l[3]*.5);
+    emissiveMaterial(255*g,225*g,140*g);fill(255,235,160);sphere(.9+.3*sin(T*.08+i+q),6,5);pop()}});
+  // face
+  const blink=T%220<6;
+  for(const s of[-1,1]){push();translate(s*5.6,-1,11.6);if(blink)scale(1.3,.22,1);fill(22,52,90);sphere(3.2,12,10);
+    if(!blink){translate(1,-1.3,2.3);fill(255);sphere(1.2,6,5);translate(-2,2.4,0);fill(160,215,255);sphere(.6,5,4)}pop();
+    push();translate(s*9.4,3.2,8.8);scale(1,.7,.35);fill(255,150,175,200);sphere(3,8,6);pop()}
+  push();translate(0,4.2,12.8);scale(1.6,.5,.4);fill(220,120,140);sphere(1,6,5);pop();
+  // translucent iridescent bubble lobes (back to front, no depth writes so they blend)
+  drawingContext.depthMask(false);
+  LOBES.forEach((l,i)=>{
+    const t=TINT[i%4],k=i==10?.8:1,r=l[3]*(1+.05*sin(T*.05+i*1.3)),m=1-c*.5;
+    push();translate(l[0]*m+sin(T*.03+i)*.8,l[1]*m+cos(T*.025+i*2)*.8,l[2]*m);
+    fill(lerp(t[0],235,pale),lerp(t[1],235,pale),lerp(t[2],235,pale),92*k);sphere(r,18,14);
+    translate(-r*.38,-r*.5,r*.5);fill(255,255,255,150);scale(1,.6,.4);sphere(r*.28,8,6);pop()});
+  drawingContext.depthMask(true);
   pop();
 }
 
-// --------------------------------------------------------------
-// 3. 3D 環境：清澈緩流與陶瓷卵石（Stream & Technofossils）
-// --------------------------------------------------------------
-function draw3DStream() {
-  push();
-  // 水面位於右下方
-  translate(180, 250, 40);
-  rotateX(1.3); // 躺平成為溪水表面
-
-  // 1. 清澈水面波光
-  specularMaterial(60, 140, 130);
-  shininess(120);
-  noStroke();
-  plane(380, 280);
-
-  // 2. 溪水底層溫潤光滑的「五千年陶瓷與海玻璃卵石」
-  // 淺青海玻璃
-  push();
-  translate(-40, -30, -15);
-  specularMaterial(140, 220, 210);
-  shininess(90);
-  ellipsoid(26, 18, 14);
-  pop();
-
-  // 象牙白陶瓷卵石
-  push();
-  translate(30, 20, -18);
-  specularMaterial(240, 235, 225);
-  shininess(70);
-  ellipsoid(32, 22, 18);
-  pop();
-
-  // 淡藍琉璃碎石
-  push();
-  translate(90, -45, -12);
-  specularMaterial(170, 215, 235);
-  shininess(90);
-  ellipsoid(22, 16, 12);
-  pop();
-
-  pop();
-}
-
-// --------------------------------------------------------------
-// 4. 3D 效果：森林金色游移光塵（SunParticle / 木漏れ日）
-// --------------------------------------------------------------
-class SunParticle {
-  constructor() {
-    this.x = random(-350, 350);
-    this.y = random(-280, 280);
-    this.z = random(-150, 150);
-    this.size = random(2.5, 6.5);
-    this.speedY = random(-0.3, -0.8);
-    this.drift = random(0.01, 0.03);
-  }
-
-  update() {
-    this.y += this.speedY;
-    this.x += sin(frameCount * this.drift) * 0.4;
-    // 飄出上方則循環到底部
-    if (this.y < -300) {
-      this.y = 300;
-      this.x = random(-350, 350);
-    }
-  }
-
-  display() {
-    push();
-    translate(this.x, this.y, this.z);
-    emissiveMaterial(255, 235, 150);
-    noStroke();
-    sphere(this.size * 0.5);
-    pop();
-  }
-}
-
-// --------------------------------------------------------------
-// 5. 3D 效果：依偎神木時噴發的治癒微光星芒（LoveSpark）
-// --------------------------------------------------------------
-class LoveSpark {
-  constructor(x, y, z) {
-    this.x = x;
-    this.y = y;
-    this.z = z;
-    this.vx = random(-1.2, 0.5);
-    this.vy = random(-1.8, -0.4);
-    this.vz = random(-0.8, 0.8);
-    this.life = 255;
-    this.size = random(4, 9);
-  }
-
-  update() {
-    this.x += this.vx;
-    this.y += this.vy;
-    this.z += this.vz;
-    this.life -= 8;
-  }
-
-  display() {
-    push();
-    translate(this.x, this.y, this.z);
-    emissiveMaterial(255, 210, 150);
-    noStroke();
-    sphere(this.size * (this.life / 255));
-    pop();
-  }
-
-  isDead() {
-    return this.life <= 0;
-  }
-}
+function mousePressed(){moved=0;pressF=frameCount;hasMouse=true}
+function mouseMoved(){hasMouse=true}
+function mouseDragged(){yaw-=(mouseX-pmouseX)*.006;pitch=constrain(pitch+(mouseY-pmouseY)*.006,-.25,1.35);moved+=abs(mouseX-pmouseX)+abs(mouseY-pmouseY);return false}
+function mouseReleased(){if(moved<6&&frameCount-pressF<=12)quake()}
+function mouseWheel(e){camD=constrain(camD*exp(e.delta*.001),150,1200);return false}
+function windowResized(){resizeCanvas(innerWidth,innerHeight)}

@@ -9,6 +9,8 @@ html,body{margin:0;height:100%;overflow:hidden;background:var(--bg)}
 canvas{display:block;touch-action:none}
 #fps{position:fixed;top:6px;left:8px;font:12px/1.4 system-ui,sans-serif;color:var(--fg);opacity:.6;pointer-events:none}
 #phase{position:fixed;top:23px;left:8px;font:12px/1.4 system-ui,sans-serif;color:var(--fg);opacity:.75;pointer-events:none}
+#energy{position:fixed;top:43px;left:8px;width:120px;height:7px;border:1px solid rgba(217,242,228,.4);border-radius:5px;overflow:hidden;background:rgba(0,0,0,.3);pointer-events:none}
+#energy i{display:block;height:100%;width:50%;background:#ffe6a8;transition:width .25s linear,background .4s linear}
 button{font:13px/1.3 system-ui,sans-serif;color:#d9f2e4;background:rgba(16,52,44,.78);border:1px solid rgba(217,242,228,.35);border-radius:9px;cursor:pointer;-webkit-user-select:none;user-select:none;touch-action:none}
 button.on{background:rgba(130,225,180,.9);color:#0c2a20;border-color:#9ff0c8;font-weight:700}
 #faceBtn{position:fixed;top:8px;right:8px;padding:7px 12px}
@@ -28,6 +30,7 @@ button.on{background:rgba(130,225,180,.9);color:#0c2a20;border-color:#9ff0c8;fon
 </style></head><body>
 <div id="fps"></div>
 <div id="phase"></div>
+<div id="energy"><i></i></div>
 <button id="faceBtn" class="ui">正面看我</button>
 
 <div id="pad" class="ui">
@@ -40,7 +43,7 @@ button.on{background:rgba(130,225,180,.9);color:#0c2a20;border-color:#9ff0c8;fon
   </div>
 </div>
 
-<div id="hint">WASD／方向鍵移動 ・ Space↑ Shift↓ ・ 拖曳或右下滑動＝轉視角 ・ ◀▶＝左右轉 ・ 點牠＝互動 ・ 點空白＝震動 ・ F＝正面看我 ・ N＝切換日夜 ・ R＝回起始點 ・ M＝滑鼠飛行</div>
+<div id="hint">WASD／方向鍵移動 ・ Space↑ Shift↓ ・ 拖曳或右下滑動＝轉視角 ・ ◀▶＝左右轉 ・ 點牠＝互動（連點三下會打滾） ・ 點真菌＝餵食 ・ 點空白＝震動 ・ F＝正面看我 ・ N＝切換日夜 ・ R＝回起始點 ・ M＝滑鼠飛行</div>
 <script src="p5.min.js"></script>
 <script src="sketch.js?v=2"></script>
 </body></html>

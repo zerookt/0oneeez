@@ -194,10 +194,40 @@ function pippaHit(sx,sy){
 // 被摸到的反應：核心閃一下、身體彈一下、噴出一圈彩色小光點
 function reactToPet(){
   P.react=72;P.glow=1;
+  P.pets=(frameCount-P.petT<80)?P.pets+1:1;P.petT=frameCount;   // 連點三下 → 開心打滾
+  if(P.pets>=3){P.pets=0;P.spin=48;P.en=min(1,P.en+.04);
+    for(let i=0;i<18;i++){const a=random(TWO_PI),s=random(1,2.4);
+      sparks.push({x:P.x,y:P.y,z:P.z,vx:cos(a)*s,vy:random(-2,-.4),vz:sin(a)*s,life:1,r:random(1.5,3),c:[255,240,170]})}}
   for(let i=0;i<22;i++){const a=random(TWO_PI),s=random(.6,1.8);
     sparks.push({x:P.x+random(-6,6),y:P.y+random(-6,6),z:P.z+random(-6,6),
       vx:cos(a)*s,vy:random(-1.5,-.2),vz:sin(a)*s,life:1,r:random(1.2,2.6),
       c:random()<.45?[255,140,180]:random()<.5?[255,225,140]:[190,250,235]})}
+}
+
+// 滑鼠射線打到哪朵真菌（餵食用）
+function fungusHit(sx,sy){
+  const mx=sx==null?mouseX:sx,my=sy==null?mouseY:sy;
+  const f0=createVector(tx-ex,ty-ey,tz-ez).normalize(),up=createVector(0,1,0);
+  const rr=p5.Vector.cross(f0,up).normalize(),d=p5.Vector.cross(rr,f0),th=tan(PI/6);
+  const nx=(mx/width-.5)*2,ny=(my/height-.5)*2;
+  const ray=f0.copy().add(rr.mult(nx*th*width/height)).add(d.mult(ny*th)).normalize();
+  let best=null,bd=1e9;
+  for(const f of fungi){if(f.s<.06)continue;const p=fpos(f);
+    const ox=p[0]-ex,oy=p[1]-ey,oz=p[2]-ez,t=ox*ray.x+oy*ray.y+oz*ray.z;
+    if(t<=0)continue;
+    const dd=Math.hypot(p[0]-(ex+ray.x*t),p[1]-(ey+ray.y*t),p[2]-(ez+ray.z*t));
+    if(dd<26+18*f.s&&dd<bd){bd=dd;best=f}}
+  return best;
+}
+
+// 餵食：被吸走的真菌會噴出光點飛向她，能量上升
+function feedFungus(f){
+  f.hl=1;f.s=max(.05,f.s-.3);
+  P.en=min(1,P.en+.12);P.react=72;P.glow=1;
+  const p=fpos(f);
+  for(let i=0;i<12;i++)flow.push({x:p[0]+random(-12,12),y:p[1]+random(-12,12),z:p[2],c:random()<.5?[255,205,80]:[200,255,160]});
+  for(let i=0;i<8;i++){const a=random(TWO_PI);
+    sparks.push({x:p[0],y:p[1],z:p[2],vx:cos(a)*.9,vy:random(-.6,.6),vz:sin(a)*.9,life:1,r:random(1,2.2),c:[190,255,170]})}
 }
 
 function update(){
@@ -260,16 +290,19 @@ function update(){
     P.pit=lerp(P.pit,constrain(-P.vy*.1,-.6,.6),.1);
   }
   if(P.react>0)P.react--;                    // 被點到之後的反應計時
-  P.glow=max(.5+.22*night,P.glow-.003);P.hyd=max(0,P.hyd-.0002);   // 夜裡核心光的下限比較高（牠自己就是光源）
+  if(P.spin>0)P.spin--;
+  // 發光亮度由能量決定：能量 0.5 時剛好是原本的亮度，沒能量就幾乎不亮
+  P.glow=max(P.glow-.02,.18+.64*P.en);
+  P.hyd=max(0,P.hyd-.0002);
   // symbiosis: she drinks harmful fungus (and spreads healing moss), the tree offers nectar
   if(P.curl<.3){
     for(const f of fungi){const p=fpos(f);
-      if(f.s>.06&&Math.hypot(P.x-p[0],P.y-p[1],P.z-p[2])<95){f.s-=.006;f.hl=min(1,f.hl+.01);P.glow=min(1,P.glow+.012);
+      if(f.s>.06&&Math.hypot(P.x-p[0],P.y-p[1],P.z-p[2])<95){f.s-=.006;f.hl=min(1,f.hl+.01);P.en=min(1,P.en+.0025);
         if(frameCount%2==0)flow.push({x:p[0]+random(-8,8),y:p[1]+random(-8,8),z:p[2],c:[200,140,230]})}
       else f.s=min(1,f.s+.0003);
       if(f.s>.5)f.hl=max(0,f.hl-.0004)}
     for(const d of drops){const p=dpos(d);
-      if(d.s>.2&&Math.hypot(P.x-p[0],P.y-p[1],P.z-p[2])<80){d.s-=.012;P.glow=min(1,P.glow+.01);P.hyd=min(1,P.hyd+.004);
+      if(d.s>.2&&Math.hypot(P.x-p[0],P.y-p[1],P.z-p[2])<80){d.s-=.012;P.en=min(1,P.en+.004);P.hyd=min(1,P.hyd+.004);
         if(frameCount%2==0)flow.push({x:p[0],y:p[1],z:p[2],c:[255,205,80]})}
       d.s=min(1,d.s+.0012)}
     if(P.y>-34&&abs(P.x-cx(P.z))<hw(P.z)+10){P.hyd=min(1,P.hyd+.01);if(frameCount%10==0)ripples.push({x:P.x,z:P.z,t:0})}
@@ -285,7 +318,7 @@ function lights3(){
   ambientLight(mixNight(95,72,18),mixNight(120,64,26),mixNight(110,74,48));
   directionalLight(mixNight(255,255,150),mixNight(235,172,175),mixNight(190,112,225),lerp(-.3,.35,night),lerp(.8,.55,night),lerp(-.4,.45,night));  // 白天暖陽 → 黃昏低斜橘光 → 夜裡冷月光
   directionalLight(mixNight(60,88,26),mixNight(90,72,36),mixNight(110,96,58),.5,.3,.6);
-  lightFalloff(1,.004,.00003);pointLight(255,208,142+70*P.glow,P.x,P.y-4,P.z);   // 牠自己的光不變：環境一暗，牠就成了最亮的光源
+  lightFalloff(1,.004,.00003);pointLight(255,208,60+230*P.glow,P.x,P.y-4,P.z);   // 牠自己的光：亮度跟著能量走
 }
 
 function draw(){
@@ -305,6 +338,8 @@ function draw(){
   if(P.qt>0)shake=max(shake,P.qt/40*9);shake*=.93;
   background(mixNight(22,52,7),mixNight(44,36,11),mixNight(40,44,22));   // 入夜後天空轉深靛藍
   if((frameCount%15===0||frameCount<3)&&fpsEl)fpsEl.textContent=Math.round(frameRate())+' fps ・ 運算 '+workMs.toFixed(1)+' ms';
+  if(enBar&&frameCount%6===0){enBar.style.width=(P.en*100).toFixed(1)+'%';
+    enBar.style.background=P.en<.25?'#c96a5a':P.en<.6?'#ffc46a':'#ffe6a8';}
   perspective(PI/3,width/height,5,12000);
   camera(ex+random(-shake,shake),ey+random(-shake,shake),ez,tx,ty,tz,0,1,0);
   lights3();
@@ -419,9 +454,11 @@ const TINT=[[248,245,234],[243,242,243],[252,246,236],[245,242,244]];   // 米�
 const STR=[[-11,-5,-9],[11,-5,-9],[-9,8,-9],[9,8,-9]];
 const strand=(i,u,T,spd)=>{const t=STR[i];return[t[0]*(1+u*1.5)+sin(T*.1+u*5+i*1.7)*u*7*(.5+spd),t[1]*(1+u*1.1)+cos(T*.08+u*4+i)*u*6+u*u*10,t[2]-u*(1-P.curl*.8)*50]};
 function drawPippa(){
-  const c=P.curl,spd=min(Math.hypot(P.vx,P.vy,P.vz)/6,1),T=frameCount,g=P.glow,pale=(1-P.hyd)*.5;
+  const c=P.curl,spd=min(Math.hypot(P.vx,P.vy,P.vz)/6,1),T=frameCount,pale=(1-P.hyd)*.5;
+  const flick=P.en<.25?constrain(.45+.55*sin(T*.45),.15,1):1;      // 快沒能量時光會一閃一閃
+  const g=P.glow*flick;
   const happy=P.react>0,bounce=happy?1+.22*sin((72-P.react)*.45)*(P.react/72):1;   // 被摸到時彈一下
-  push();translate(P.x,P.y,P.z);rotateY(P.yaw);rotateX(P.pit);rotateZ(P.roll);
+  push();translate(P.x,P.y,P.z);rotateY(P.yaw);rotateX(P.pit);rotateZ(P.roll+(P.spin>0?(1-P.spin/48)*TWO_PI:0));
   scale(bounce*(.9+.1*P.hyd)*(1-.2*c)*(1+.05*sin(T*.9)*c),bounce*(.9+.1*P.hyd)*(1-.2*c)*(1+.04*sin(T*.05)),bounce*(1-.2*c)*(1+.06*spd));
   // trailing tendrils ending in warm glowing orbs
   for(let i=0;i<4;i++){
@@ -449,7 +486,7 @@ function drawPippa(){
   // ★ 臉一定要畫在身體之後：身體是不透明的，先畫的臉會被整顆蓋掉（這就是剛剛「看不出是生物」的原因）
   const blink=T%220<6;
   for(const s of[-1,1]){push();translate(s*4.4,-1,11.9);        // 眼距
-    if(happy)scale(1.25,.32,1);else if(blink)scale(1.3,.22,1);   // 開心瞇眼 / 眨眼
+    if(happy)scale(1.25,.32,1);else if(blink)scale(1.3,.22,1);else if(P.en<.3)scale(1.15,.5,1);   // 開心瞇眼 / 眨眼 / 沒力半閉
     fill(40,44,54);sphere(1.25,8,6);pop();
     push();translate(s*8.4,3.2,8.8);scale(happy?1.4:1,.7,.35);fill(255,150,175,happy?235:200);sphere(3,8,6);pop()}
   push();translate(0,4.2,12.8);scale(1.6,happy?1.2:.5,.4);fill(220,120,140);sphere(1,6,5);pop();
@@ -480,7 +517,9 @@ function keyPressed(){
 let tPrev=null;                                  // 觸控上一次的座標
 function lookStart(ev){if(isUI(ev))return;moved=0;pressF=frameCount;pressing=true;return false}
 function lookDrag(){yaw-=(mouseX-pmouseX)*.006;pitch=constrain(pitch+(mouseY-pmouseY)*.006,-.45,1.35);moved+=abs(mouseX-pmouseX)+abs(mouseY-pmouseY)}
-function lookTap(sx,sy){pressing=false;if(moved<6&&frameCount-pressF<=12){if(pippaHit(sx,sy))reactToPet();else quake()}}
+function lookTap(sx,sy){pressing=false;if(moved<6&&frameCount-pressF<=12){
+  if(pippaHit(sx,sy))reactToPet();
+  else{const f=fungusHit(sx,sy);if(f)feedFungus(f);else quake()}}}
 function mousePressed(ev){lookStart(ev)}
 function mouseDragged(ev){if(isUI(ev))return;lookDrag();return false}
 function mouseReleased(ev){if(isUI(ev))return;lookTap()}

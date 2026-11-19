@@ -333,12 +333,12 @@ function feedFungus(f){
 function update(){
   // 鍵盤飛行：方向以鏡頭的水平朝向為準
   let ix=0,iz=0,iy=0;
-  if(keyIsDown(87)||keyIsDown(UP_ARROW))iz+=1;     // W / ↑ 前進
-  if(keyIsDown(83)||keyIsDown(DOWN_ARROW))iz-=1;   // S / ↓ 後退
+  if(keyIsDown(87))iz+=1;                          // W 前進
+  if(keyIsDown(83))iz-=1;                          // S 後退
   if(keyIsDown(65)||keyIsDown(LEFT_ARROW))ix-=1;   // A / ← 左移
   if(keyIsDown(68)||keyIsDown(RIGHT_ARROW))ix+=1;  // D / → 右移
-  if(keyIsDown(32))iy-=1;                          // Space 上升
-  if(keyIsDown(SHIFT))iy+=1;                       // Shift 下降
+  if(keyIsDown(UP_ARROW)||keyIsDown(32))iy-=1;     // ↑ 上升（直觀向上，亦支援 Space）
+  if(keyIsDown(DOWN_ARROW)||keyIsDown(SHIFT))iy+=1;// ↓ 下降（直觀向下，亦支援 Shift）
   const kb=ix||iz||iy;
 
   if(kb||hoverFly||pressing){P.idleT=0}else{P.idleT++}

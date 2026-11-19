@@ -2,6 +2,7 @@
 
 > 截止：11/12（四）上課前 15:30
 > 這一站在做什麼、怎麼做、卡住看哪裡，都在課程頁：<https://course.interaction.tw/oop/#milestones>
+> 🎮 **線上直接遊玩**：<https://zerookt.github.io/0oneeez/m3-creature/>
 
 > 這一站是**報告站**：每個人上台三分鐘，簡報一律轉成 PDF 放這個資料夾。
 

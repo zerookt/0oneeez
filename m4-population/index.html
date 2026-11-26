@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>晶靈樹醫的森林｜M4 族群生態（Step 1：森林重塑）</title>
+  <title>晶靈樹醫的森林｜M4 族群生態（Step 2：平等族群與自由觀察）</title>
   <style>
     :root {
       --bg: #0f201d;
       --fg: #e2f3ea;
-      --muted: rgba(226, 243, 234, 0.62);
-      --panel: rgba(14, 34, 30, 0.56);
+      --muted: rgba(226, 243, 234, 0.68);
+      --panel: rgba(14, 34, 30, 0.62);
       --border: rgba(210, 240, 224, 0.22);
       --accent: #f3dba0;
     }
@@ -24,54 +24,100 @@
     }
     canvas { display: block; touch-action: none; }
 
-    /* 左上角：極簡時間與生命微狀態 */
+    /* 左上角：森林時間與目前觀察個體小卡 */
     #hudTopLeft {
       position: fixed;
       top: 14px;
       left: 16px;
       display: flex;
       flex-direction: column;
-      gap: 6px;
-      pointer-events: none;
-      z-index: 5;
+      gap: 8px;
+      z-index: 6;
+      max-width: 245px;
     }
     #phase {
       font-size: 13px;
       letter-spacing: 0.08em;
       color: var(--fg);
-      opacity: 0.85;
+      opacity: 0.88;
       text-shadow: 0 1px 6px rgba(0,0,0,0.45);
+      pointer-events: none;
+    }
+    #observerCard {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .obs-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    #obsName {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+    }
+    #obsTrait {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: rgba(243, 219, 160, 0.16);
+      color: var(--accent);
+      border: 1px solid rgba(243, 219, 160, 0.35);
+      white-space: nowrap;
+    }
+    #obsMeta {
+      font: 11px/1.4 system-ui, sans-serif;
+      color: var(--muted);
     }
     #energyWrap {
       display: flex;
       align-items: center;
       gap: 8px;
-      font-size: 11px;
+      font: 11px/1 system-ui, sans-serif;
       color: var(--muted);
     }
     #energy {
-      width: 110px;
+      flex: 1;
       height: 5px;
       border: 1px solid var(--border);
       border-radius: 99px;
       overflow: hidden;
-      background: rgba(0, 0, 0, 0.28);
+      background: rgba(0, 0, 0, 0.3);
     }
     #energy i {
       display: block;
       height: 100%;
-      width: 50%;
+      width: 60%;
       background: var(--accent);
       transition: width 0.25s linear, background 0.4s linear;
+    }
+    .obs-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .obs-actions button {
+      flex: 1;
+      padding: 5px 8px;
+      font-size: 11px;
     }
     #fps {
       display: none;
       font: 11px/1.4 ui-monospace, monospace;
       color: var(--muted);
+      pointer-events: none;
     }
     #fps.show { display: block; }
 
-    /* 右上角：低干擾森林按鈕 */
+    /* 按鈕共用樣式 */
     .ui-btn {
       font: 12px/1.3 "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
       letter-spacing: 0.04em;
@@ -87,14 +133,15 @@
       transition: background 0.2s, border-color 0.2s, transform 0.15s;
     }
     .ui-btn:hover {
-      background: rgba(26, 60, 52, 0.78);
-      border-color: rgba(226, 243, 234, 0.45);
+      background: rgba(26, 60, 52, 0.82);
+      border-color: rgba(226, 243, 234, 0.48);
     }
     .ui-btn.on {
       background: rgba(243, 219, 160, 0.22);
       color: var(--accent);
       border-color: rgba(243, 219, 160, 0.65);
     }
+
     #topRightBtns {
       position: fixed;
       top: 14px;
@@ -105,7 +152,7 @@
     }
     #topRightBtns button { padding: 7px 14px; }
 
-    /* 觸控／視角面板（可收合或低存在感） */
+    /* 右下角觸控視角板 */
     #pad {
       position: fixed;
       right: 16px;
@@ -115,13 +162,13 @@
       flex-direction: column;
       gap: 6px;
       align-items: center;
-      opacity: 0.75;
+      opacity: 0.72;
       transition: opacity 0.2s;
     }
     #pad:hover { opacity: 1; }
     #padsurf {
-      width: 118px;
-      height: 96px;
+      width: 114px;
+      height: 88px;
       border-radius: 14px;
       background: var(--panel);
       border: 1px solid var(--border);
@@ -142,16 +189,15 @@
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 5px;
-      width: 118px;
+      width: 114px;
     }
     #padgrid button {
-      height: 30px;
-      font-size: 13px;
+      height: 28px;
+      font-size: 12px;
       border-radius: 8px;
       padding: 0;
     }
 
-    /* 底部極簡觀察提示 */
     #hint {
       position: fixed;
       left: 50%;
@@ -159,8 +205,8 @@
       transform: translateX(-50%);
       padding: 5px 14px;
       border-radius: 99px;
-      background: rgba(10, 24, 21, 0.42);
-      border: 1px solid rgba(210, 240, 224, 0.12);
+      background: rgba(10, 24, 21, 0.48);
+      border: 1px solid rgba(210, 240, 224, 0.14);
       font: 11px/1.5 system-ui, sans-serif;
       color: var(--muted);
       letter-spacing: 0.03em;
@@ -173,18 +219,29 @@
   </style>
 </head>
 <body>
-  <div id="hudTopLeft">
-    <div id="phase">☀ 晨林</div>
-    <div id="energyWrap">
-      <span>核心微光</span>
-      <div id="energy"><i></i></div>
+  <div id="hudTopLeft" class="ui">
+    <div id="phase">☀ 靜謐晨林</div>
+    <div id="observerCard">
+      <div class="obs-head">
+        <span id="obsName">自由漫遊森林</span>
+        <span id="obsTrait">生態觀察中</span>
+      </div>
+      <div id="obsMeta">點擊森林裡任一生物可輕撫與觀察；WASD 可自由飛覽</div>
+      <div id="energyWrap" style="display:none">
+        <span>核心能量</span>
+        <div id="energy"><i></i></div>
+      </div>
+      <div class="obs-actions">
+        <button id="followBtn" class="ui-btn">跟隨生物</button>
+        <button id="nextBtn" class="ui-btn">切換下一隻 ↻</button>
+      </div>
     </div>
     <div id="fps"></div>
   </div>
 
   <div id="topRightBtns" class="ui">
     <button id="nightBtn" class="ui-btn" title="切換日夜循環（N）">日夜：自動</button>
-    <button id="faceBtn" class="ui-btn" title="讓 Pippa 看向鏡頭（F）">正面看我</button>
+    <button id="faceBtn" class="ui-btn" title="讓目前觀察的生物看向鏡頭（F）">正面看牠</button>
   </div>
 
   <div id="pad" class="ui">
@@ -197,7 +254,7 @@
     </div>
   </div>
 
-  <div id="hint">WASD 移動・↑↓ 升降・拖曳轉視角・點生物互動・點真菌治癒・點水面起漣漪・Q 地震・N 日夜・I 效能</div>
+  <div id="hint">WASD 移動・↑↓ 升降・拖曳轉視角・點生物＝輕撫＆選取・Tab 換隻跟隨・Esc 自由飛覽・點水面起漣漪・N 日夜・I 效能</div>
 
   <script src="../m3-creature/p5.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js';"></script>
   <script src="sketch.js"></script>

@@ -1,6 +1,6 @@
 # 我的作品集：物件導向程式設計
 
-> 🎮 **作品線上直接遊玩**：<https://zerookt.github.io/0oneeez/>（最新進度：M3 晶靈樹醫的森林）
+> 🎮 **作品線上直接遊玩**：<https://zerookt.github.io/0oneeez/>（最新進度：M4 晶靈樹醫的森林）
 > 這是你整學期的作品集 repo：後未來動物園 M0 到 M6 七站的作品、你的 AI 工作流、你的成長紀錄，全部在這裡累積。
 > 課程頁：<https://course.interaction.tw/oop/>（每週進度、各站步驟與截止時間都在課程頁）
 

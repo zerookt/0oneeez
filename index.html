@@ -128,14 +128,18 @@
     <h1>晶靈樹醫 Pippa</h1>
     <p class="desc">國立清華大學 科技藝術「物件導向程式設計與創作」</p>
     
-    <a id="enterBtn" class="primary-btn" href="./m3-creature/">🌿 進入最新進度：M3 晶靈樹醫的森林</a>
+    <a id="enterBtn" class="primary-btn" href="./m4-population/">🌿 進入最新進度：M4 晶靈樹醫的森林</a>
     <div class="timer-hint" id="timerHint">（<span id="countdown">4</span> 秒後自動跳轉，點擊取消）</div>
 
     <div class="links-title">歷程作品存檔</div>
     <div class="milestones">
+      <a class="m-item" href="./m4-population/">
+        <span>🌲 M4 族群：有機森林重塑（開發中）</span>
+        <span class="m-tag">最新遊玩</span>
+      </a>
       <a class="m-item" href="./m3-creature/">
         <span>🌿 M3 個體：晶靈樹醫的森林</span>
-        <span class="m-tag">最新遊玩</span>
+        <span class="m-tag">報告存檔</span>
       </a>
       <a class="m-item" href="./m2-species/">
         <span>✨ M2 物種：雛形展示</span>
@@ -164,7 +168,7 @@
       if (countEl) countEl.textContent = timeLeft;
       if (timeLeft <= 0) {
         clearInterval(timer);
-        window.location.href = './m3-creature/';
+        window.location.href = './m4-population/';
       }
     }, 1000);
 

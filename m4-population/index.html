@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>晶靈樹醫的森林｜M4 族群生態（Step 1：森林重塑）</title>
+  <style>
+    :root {
+      --bg: #0f201d;
+      --fg: #e2f3ea;
+      --muted: rgba(226, 243, 234, 0.62);
+      --panel: rgba(14, 34, 30, 0.56);
+      --border: rgba(210, 240, 224, 0.22);
+      --accent: #f3dba0;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--fg);
+      font-family: "Noto Serif TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    }
+    canvas { display: block; touch-action: none; }
+
+    /* 左上角：極簡時間與生命微狀態 */
+    #hudTopLeft {
+      position: fixed;
+      top: 14px;
+      left: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: none;
+      z-index: 5;
+    }
+    #phase {
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      color: var(--fg);
+      opacity: 0.85;
+      text-shadow: 0 1px 6px rgba(0,0,0,0.45);
+    }
+    #energyWrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    #energy {
+      width: 110px;
+      height: 5px;
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      overflow: hidden;
+      background: rgba(0, 0, 0, 0.28);
+    }
+    #energy i {
+      display: block;
+      height: 100%;
+      width: 50%;
+      background: var(--accent);
+      transition: width 0.25s linear, background 0.4s linear;
+    }
+    #fps {
+      display: none;
+      font: 11px/1.4 ui-monospace, monospace;
+      color: var(--muted);
+    }
+    #fps.show { display: block; }
+
+    /* 右上角：低干擾森林按鈕 */
+    .ui-btn {
+      font: 12px/1.3 "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+      letter-spacing: 0.04em;
+      color: var(--fg);
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      backdrop-filter: blur(8px);
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    }
+    .ui-btn:hover {
+      background: rgba(26, 60, 52, 0.78);
+      border-color: rgba(226, 243, 234, 0.45);
+    }
+    .ui-btn.on {
+      background: rgba(243, 219, 160, 0.22);
+      color: var(--accent);
+      border-color: rgba(243, 219, 160, 0.65);
+    }
+    #topRightBtns {
+      position: fixed;
+      top: 14px;
+      right: 16px;
+      display: flex;
+      gap: 8px;
+      z-index: 6;
+    }
+    #topRightBtns button { padding: 7px 14px; }
+
+    /* 觸控／視角面板（可收合或低存在感） */
+    #pad {
+      position: fixed;
+      right: 16px;
+      bottom: calc(46px + env(safe-area-inset-bottom, 0px));
+      z-index: 5;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+      opacity: 0.75;
+      transition: opacity 0.2s;
+    }
+    #pad:hover { opacity: 1; }
+    #padsurf {
+      width: 118px;
+      height: 96px;
+      border-radius: 14px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      backdrop-filter: blur(8px);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--muted);
+      touch-action: none;
+      cursor: grab;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    #padsurf span { pointer-events: none; }
+    #padgrid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      width: 118px;
+    }
+    #padgrid button {
+      height: 30px;
+      font-size: 13px;
+      border-radius: 8px;
+      padding: 0;
+    }
+
+    /* 底部極簡觀察提示 */
+    #hint {
+      position: fixed;
+      left: 50%;
+      bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+      transform: translateX(-50%);
+      padding: 5px 14px;
+      border-radius: 99px;
+      background: rgba(10, 24, 21, 0.42);
+      border: 1px solid rgba(210, 240, 224, 0.12);
+      font: 11px/1.5 system-ui, sans-serif;
+      color: var(--muted);
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+      max-width: calc(100vw - 24px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="hudTopLeft">
+    <div id="phase">☀ 晨林</div>
+    <div id="energyWrap">
+      <span>核心微光</span>
+      <div id="energy"><i></i></div>
+    </div>
+    <div id="fps"></div>
+  </div>
+
+  <div id="topRightBtns" class="ui">
+    <button id="nightBtn" class="ui-btn" title="切換日夜循環（N）">日夜：自動</button>
+    <button id="faceBtn" class="ui-btn" title="讓 Pippa 看向鏡頭（F）">正面看我</button>
+  </div>
+
+  <div id="pad" class="ui">
+    <div id="padsurf" class="ui" title="拖曳此區轉動視角"><span>滑動轉視角</span></div>
+    <div id="padgrid">
+      <button class="ui-btn" data-cam="l" title="往左轉">◀</button>
+      <button class="ui-btn" data-cam="r" title="往右轉">▶</button>
+      <button class="ui-btn" data-cam="zi" title="拉近">＋</button>
+      <button class="ui-btn" data-cam="zo" title="拉遠">－</button>
+    </div>
+  </div>
+
+  <div id="hint">WASD 移動・↑↓ 升降・拖曳轉視角・點生物互動・點真菌治癒・點水面起漣漪・Q 地震・N 日夜・I 效能</div>
+
+  <script src="../m3-creature/p5.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js';"></script>
+  <script src="sketch.js"></script>
+</body>
+</html>

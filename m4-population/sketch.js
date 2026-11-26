@@ -107,34 +107,33 @@ function refreshObserverUI() {
   if (!sel) {
     if (obsNameEl) obsNameEl.textContent = '自由漫遊森林';
     if (obsTraitEl) obsTraitEl.textContent = `共 ${creatures.length} 隻棲居者`;
-    if (obsMetaEl) obsMetaEl.textContent = 'WASD 自由飛覽；點擊任一生物輕撫並查看牠的狀態';
+    if (obsMetaEl) obsMetaEl.textContent = 'WASD 自由飛覽；點擊任一生物可接管操控牠';
     if (enWrapEl) enWrapEl.style.display = 'none';
     if (followBtn) {
-      followBtn.textContent = '跟隨生物';
+      followBtn.textContent = '操控生物';
       followBtn.classList.remove('on');
     }
     return;
   }
 
   const traitInfo = TRAITS[sel.trait] || TRAITS.curious;
-  if (obsNameEl) obsNameEl.textContent = sel.name;
+  if (obsNameEl) obsNameEl.textContent = `操控中：${sel.name}`;
   if (obsTraitEl) obsTraitEl.textContent = traitInfo.label;
-  if (obsMetaEl) obsMetaEl.textContent = `設計者：${sel.creator} ・ ${traitInfo.desc}`;
+  if (obsMetaEl) obsMetaEl.textContent = `設計者：${sel.creator} ・ 目前完全由你操控（WASD 移動・放開後才恢復自主生活）`;
   if (enWrapEl) enWrapEl.style.display = 'flex';
   if (enBar) {
     enBar.style.width = (sel.en * 100).toFixed(1) + '%';
     enBar.style.background = sel.en < 0.25 ? '#c96a5a' : sel.en < 0.6 ? '#ffc46a' : `rgb(${sel.coreColor.join(',')})`;
   }
   if (followBtn) {
-    followBtn.textContent = followMode ? '放開（自由飛）' : '跟隨牠';
-    followBtn.classList.toggle('on', followMode);
+    followBtn.textContent = '放開（自由飛）';
+    followBtn.classList.add('on');
   }
 }
 
-function selectCreature(c, enableFollow = false) {
+function selectCreature(c) {
   selectedId = c ? c.id : null;
-  if (!c) followMode = false;
-  else if (enableFollow) followMode = true;
+  followMode = !!c;
   refreshObserverUI();
 }
 
@@ -142,17 +141,16 @@ function cycleNextCreature() {
   if (creatures.length === 0) return;
   const idx = creatures.findIndex((c) => c.id === selectedId);
   const next = creatures[(idx + 1) % creatures.length];
-  selectCreature(next, true);
+  selectCreature(next);
 }
 
 function toggleFollow() {
   const sel = getSelectedCreature();
   if (!sel) {
-    if (creatures.length > 0) selectCreature(creatures[0], true);
+    if (creatures.length > 0) selectCreature(creatures[0]);
     return;
   }
-  followMode = !followMode;
-  refreshObserverUI();
+  selectCreature(null);
 }
 
 function toggleFace() {
@@ -354,7 +352,7 @@ class Creature {
     }
   }
 
-  update(all, isGuided, guideVec) {
+  update(all, isManual, guideVec) {
     // 能量緩慢消耗
     const speedNow = Math.hypot(this.vx, this.vy, this.vz);
     this.en = max(0, this.en - (0.00003 + min(8, speedNow) * 0.000008));
@@ -364,15 +362,22 @@ class Creature {
     if (globalQuakeT > 0) {
       this.curl = min(1, this.curl + 0.22);
       this.vx *= 0.85; this.vy *= 0.85; this.vz *= 0.85;
-    } else if (isGuided && guideVec) {
-      // 2. 跟隨模式下由互動者輕輕引導飛行
-      this.curl = max(0, this.curl - 0.04);
-      const fl = Math.hypot(tx - ex, tz - ez) || 1;
-      const fx = (tx - ex) / fl, fz = (tz - ez) / fl;
-      this.vx += (fx * guideVec.z - fz * guideVec.x) * 0.85 * vigor;
-      this.vz += (fz * guideVec.z + fx * guideVec.x) * 0.85 * vigor;
-      this.vy += guideVec.y * 0.78 * vigor;
-      this.vx *= 0.95; this.vy *= 0.95; this.vz *= 0.95;
+    } else if (isManual) {
+      // 2. 被選取時：完全人為操控（停下自主亂跑，沒有按鍵就乖乖原地懸浮等待）
+      this.curl = max(0, this.curl - 0.06);
+      if (guideVec) {
+        const fl = Math.hypot(tx - ex, tz - ez) || 1;
+        const fx = (tx - ex) / fl, fz = (tz - ez) / fl;
+        this.vx += (fx * guideVec.z - fz * guideVec.x) * 0.85 * vigor;
+        this.vz += (fz * guideVec.z + fx * guideVec.x) * 0.85 * vigor;
+        this.vy += guideVec.y * 0.78 * vigor;
+        this.vx *= 0.94; this.vy *= 0.94; this.vz *= 0.94;
+        this.home = { x: this.x, y: this.y, z: this.z };
+      } else {
+        this.vx *= 0.84;
+        this.vy *= 0.84;
+        this.vz *= 0.84;
+      }
     } else {
       // 3. 自主生命本能（依各自個性與生態需求行動）
       let ax = 0, ay = 0, az = 0;
@@ -509,7 +514,7 @@ class Creature {
     }
 
     // 速度上限與漂浮位移
-    const maxSpd = (isGuided ? 8.2 : 4.2) * vigor;
+    const maxSpd = (isManual ? 8.2 : 4.2) * vigor;
     const sp = Math.hypot(this.vx, this.vy, this.vz);
     if (sp > maxSpd) {
       this.vx *= maxSpd / sp;
@@ -1255,8 +1260,8 @@ function updateWorld() {
   const guideVec = hasKb ? { x: ix, y: iy, z: iz } : null;
 
   for (const c of creatures) {
-    const isGuided = followMode && sel === c;
-    c.update(creatures, isGuided, guideVec);
+    const isManual = sel === c;
+    c.update(creatures, isManual, guideVec);
   }
 
   // 更新菌叢與蜜露再生
@@ -1722,9 +1727,9 @@ function keyPressed() {
     return false;
   }
   if (keyCode === TAB) { cycleNextCreature(); return false; }
-  if (keyCode === ESCAPE) { selectCreature(null, false); return false; }
+  if (keyCode === ESCAPE) { selectCreature(null); return false; }
   if (key === 'r' || key === 'R') {
-    selectCreature(null, false);
+    selectCreature(null);
     tx = 180; ty = -105; tz = 90; yaw = 0.68; pitch = 0.24; camD = 390;
     return false;
   }
@@ -1750,7 +1755,7 @@ function lookTap(sx, sy) {
     const hitC = creatureHit(sx, sy);
     if (hitC) {
       hitC.pet();
-      selectCreature(hitC, false);
+      selectCreature(hitC);
     } else {
       const f = fungusHit(sx, sy);
       if (f) feedFungus(f);
@@ -1762,7 +1767,7 @@ function lookTap(sx, sy) {
 function doubleClicked(ev) {
   if (isUI(ev)) return;
   const hitC = creatureHit();
-  if (hitC) selectCreature(hitC, true);
+  if (hitC) selectCreature(hitC);
 }
 function mousePressed(ev) { lookStart(ev); }
 function mouseDragged(ev) { if (isUI(ev)) return; lookDrag(); return false; }
